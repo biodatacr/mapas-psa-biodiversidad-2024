@@ -1,5 +1,8 @@
 # Mapas para el Programa de Pago por Servicios Ambientales (PSA) en biodiversidad del año 2024
 
+## Depuración de datos
+[Lista de especies de plantas](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/depuracion-lista-especies-plantas.html)
+
 ## Comandos para el manejo de la imagen y del contenedor Docker
 
 ### Generación de la imagen a partir del archivo Dockerfile

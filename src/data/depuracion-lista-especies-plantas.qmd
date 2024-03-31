@@ -1,0 +1,951 @@
+---
+title: "Depuración de una lista de especies de plantas"
+format: 
+  html:
+    lang: es
+    theme: cosmo
+    toc: true
+    toc-expand: 3
+---
+
+# Introducción
+Este documento, elaborado con el sistema de publicación técnica y científica [Quarto](https://quarto.org/), detalla el proceso de depuración de una lista de especies (*species checklist*) almacenada en un archivo. El documento combina texto con salidas generadas por el lenguaje de programación [R](https://www.r-project.org/). Como parte de la implementación del procesamiento en R, se utilizó el paquete [rgbif](https://cran.r-project.org/web/packages/rgbif/) para acceder los servicios web de la [interfaz de programación de aplicaciones (API) de la Infraestructura Mundial de Información en Biodiversidad (GBIF)](https://www.gbif.org/developer/summary) y consultar la [taxonomía de referencia de GBIF](https://www.gbif.org/dataset/d7dddbf4-2cf0-4f39-9b2a-bb099caae36c), la cual se empleó como base para corregir la ortografía de los nombres científicos e identificar sus sinónimos.
+
+La depuración se dividió en tres etapas:
+
+- Depuración básica:  
+    - Borrado de registros con nombres de especies duplicados.
+    - Reducción y cambio de nombres de columnas.
+    - Corrección de nombres de especies con espacios en blanco, caracteres especiales y palabras adicionales.
+- Depuración taxonómica:  
+    - Corrección de nombres de especies con errores ortográficos.
+    - Borrado de sinónimos o de nombres aceptados cuando ambos se encuentran en la lista de especies.
+- Integración de la depuración básica y la depuración taxonómica:
+    - Unión de las listas de especies resultantes de la depuración básica y la depuración taxonómica en una lista final.
+    - Almacenamiento de la lista depurada final en un archivo.
+    
+El código fuente de este documento está disponible en [https://github.com/biodatacr/mapas-psa-biodiversidad-2024/blob/main/src/data/depuracion-lista-especies-plantas.qmd](https://github.com/biodatacr/mapas-psa-biodiversidad-2024/blob/main/src/data/depuracion-lista-especies-plantas.qmd).
+
+
+```{r}
+#| label: carga-paquetes
+#| echo: false
+#| message: false
+
+# Paquetes
+library(here)
+library(readr)
+library(readxl)
+library(dplyr)
+library(stringr)
+library(stringi)
+library(rgbif)
+library(DT)
+```
+
+```{r}
+#| label: funciones
+#| echo: false
+#| message: false
+
+# Esta función retorna un nombre binomial (género + especie) "depurado"
+# que se obtiene al remover espacios en blanco innecesarios,
+# carácteres especiales y palabras adicionales en un nombre de entrada
+nombre_especie_depurado <- function(nombre_especie) {
+  # Borrado de espacios en blanco internos o situados adelante o atrás
+  nombre_depurado <- str_squish(nombre_especie)
+  
+  # Se obtienen las primeras dos palabras
+  nombre_depurado <- word(nombre_depurado, start=1, end=2, sep=fixed(" "))
+  
+  # Borrado de caracteres especiales
+  nombre_depurado <- str_replace_all(nombre_depurado, "[^A-Za-z -]", "")
+  
+  # Transformación general de texto
+  nombre_depurado <- stri_trans_general(nombre_depurado, id = "Latin-ASCII")
+  
+  return(nombre_depurado)
+}
+```
+
+# Definición de parámetros generales
+Para comenzar, se definieron algunos parámetros generales del procesamiento en R.
+
+```{r}
+#| label: constantes
+#| code-fold: show
+#| code-summary: "Código para la definición de parámetros generales"
+
+# Archivo con la lista original de especies
+ARCHIVO_LISTA_ESPECIES_ORIGINAL <- 
+  here("data", "raw", "Lista de FLORA sin exóticas.xlsx")
+
+# Columna en el archivo original que contiene el nombre de la especie
+COLUMNA_NOMBRE_ESPECIE <- "species"
+
+# Archivo con la lista final de especies
+ARCHIVO_LISTA_ESPECIES_FINAL <- 
+  here("data", "processed", "lista-final-especies-plantas.csv")
+
+# Reino para realizar búsquedas en la taxonomía de referencia de GBIF
+REINO <- "Plantae"
+
+# Tema de la lista (para usar en los nombres de archivos de descargas)
+TEMA_LISTA_ESPECIES <- "plantas"
+```
+
+Las rutas especificadas para los archivos se basan en la estructura de directorios para proyectos de ciencia de datos propuesta por la iniciativa [Cookiecutter Data Science](http://drivendata.github.io/cookiecutter-data-science/).
+
+# Carga de la lista original
+
+## Carga de la lista
+
+::: {.callout-note title="Archivo con la lista original de especies"}
+`r ARCHIVO_LISTA_ESPECIES_ORIGINAL`
+:::
+
+El archivo se cargó en un cuadro de datos (*data frame*) de R, para su procesamiento.
+
+```{r}
+#| label: carga-lista-especies-original
+#| code-fold: true
+#| code-summary: "Código para la carga de la lista"
+
+# Carga de la lista original de especies
+lista_especies_00_original <- read_excel(ARCHIVO_LISTA_ESPECIES_ORIGINAL) 
+```
+
+## Visualización de la lista original
+**Lista original de especies**
+
+```{r}
+#| label: visualizacion-lista-especies-original
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de la lista"
+
+# Visualización de la lista original de especies
+lista_especies_00_original |>
+  arrange(scientificName) |>
+  datatable(
+    rownames = FALSE,
+    extensions = c("Buttons"),
+    options = list(
+      searchHighlight = TRUE,
+      pageLength = 5,
+      language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json'),
+      dom = 'Bfrtlip',
+      buttons = list(
+        list(extend='copy', text='Copiar'),
+        list(extend='print', text='Imprimir'),
+        list(
+          extend = 'collection',
+          buttons = list(
+            list(
+              extend='csv', 
+              title=paste("Lista original de especies de", TEMA_LISTA_ESPECIES),
+              text='CSV'
+            ),
+            list(
+              extend='excel', 
+              title=paste("Lista original de especies de", TEMA_LISTA_ESPECIES),
+              text='Excel'
+            ),
+            list(
+              extend='pdf', 
+              title=paste("Lista original de especies de", TEMA_LISTA_ESPECIES),
+              text='PDF'
+            )
+          ), 
+          text = 'Descargar'
+        )
+      )
+    )
+  )
+```
+
+::: {.callout-note title="Cantidad de registros en la lista original de especies"}
+`r nrow(lista_especies_00_original)`
+:::
+
+La columna que contiene el nombre de cada especie es ``r COLUMNA_NOMBRE_ESPECIE`` y su contenido está compuesto por el género y el epíteto específico de la especie (ej. *Homo sapiens*). 
+
+El proceso de depuración, que se detalla en las siguientes secciones, pretende asegurar que:
+
+- La lista contenga un solo registro por cada especie.
+- El nombre de la especie no contenga espacios en blanco innecesarios, caracteres especiales o palabras adicionales al género y al epíteto específico.
+- La ortografía del nombre de la especie sea correcta.
+- Se utilice el nombre aceptado de la especie o un sinónimo, pero no ambos.
+
+# Depuración básica
+En esta etapa, se corrigieron problemas relacionados con registros con nombres de especies duplicados y nombres de especies con espacios en blanco, caracteres especiales y palabras adicionales al género y al epíteto específico. También se eliminaron y renombraron algunas columnas del conjunto de datos, para facilitar su procesamiento.
+
+El resultado del proceso de depuración básica se almacenó en una lista separada.
+
+```{r}
+#| label: inicializacion-lista-depurada-basica
+#| echo: false
+
+# Inicialización de la lista depurada básica
+lista_especies_01_depurada_basica_00_inicial <-
+  lista_especies_00_original
+```
+
+## Borrado de registros con nombres de especies duplicados
+Se borraron los registros con nombres de especies presentes en otros registros. De esta manera, cada especie quedó presente en solo un registro.
+
+**Lista de nombres de especies duplicados**
+
+```{r}
+#| label: visualizacion-lista-nombres-especies-duplicados-1
+#| code-fold: true
+#| code-summary: "Código para la visualización de la lista"
+
+# Generación de la lista de nombres de especies duplicados
+nombres_especies_duplicados_1 <-
+  lista_especies_01_depurada_basica_00_inicial |>
+  group_by(species) |>
+  summarize(n = n()) |>
+  filter(n > 1)
+  
+# Visualización de la lista
+nombres_especies_duplicados_1 |>
+  rename(
+    "Nombre de la especie" = species,
+    "Cantidad de registros" = n
+  )
+```
+
+::: {.callout-note title="Cantidad de nombres de especies duplicados"}
+`r nrow(nombres_especies_duplicados_1)`
+:::
+
+Se examinaron los registros con nombres de especies duplicados, se identificaron los que debían ser borrados y se borraron.
+
+```{r}
+#| label: depuracion-basica-borrado-duplicados
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para el borrado de registros"
+
+# Borrado de registros con nombres de especies duplicados
+lista_especies_01_depurada_basica_01_duplicados_borrados <-
+  lista_especies_01_depurada_basica_00_inicial |>
+  filter(!(species %in% nombres_especies_duplicados_1$species & is.na(speciesKey)))
+```
+
+**Lista de nombres de especies duplicados (para verificar el borrado)**
+
+```{r}
+#| label: visualizacion-lista-nombres-especies-duplicados-2
+#| code-fold: true
+#| code-summary: "Código para la visualización de la lista"
+
+# Generación de la lista de nombres de especies duplicados
+nombres_especies_duplicados_2 <-
+  lista_especies_01_depurada_basica_01_duplicados_borrados |>
+  group_by(species) |>
+  summarize(n = n()) |>
+  filter(n > 1)
+  
+# Visualización de la lista
+nombres_especies_duplicados_2 |>
+  rename(
+    "Nombre de la especie" = species,
+    "Cantidad de registros" = n
+  )
+```
+
+::: {.callout-note title="Cantidad de nombres de especies duplicados (para verificar el borrado)"}
+`r nrow(nombres_especies_duplicados_2)`
+:::
+
+::: {.callout-note title="Cantidad de registros en la lista depurada de especies (después de borrar los duplicados)"}
+`r nrow(lista_especies_01_depurada_basica_01_duplicados_borrados)`
+:::
+
+## Reducción y cambio de nombres de columnas
+Para facilitar el procesamiento de los datos, se eliminaron de la lista de especies las columnas innecesarias y se renombraron otras.
+
+```{r}
+#| label: depuracion-basica-reduccion-columnas
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la reducción y cambio de nombres de columnas"
+
+# Reducción y cambio de nombres de columnas
+lista_especies_01_depurada_basica_02_columnas_reducidas <-
+  lista_especies_01_depurada_basica_01_duplicados_borrados |>
+  dplyr::select(
+    species, speciesKey,
+    CITES, iucnRedListCategory, `SINAC R- SINAC-CONAC-092-2017`, `25700-MINAE`
+  ) |>
+  rename(
+    category_cites = CITES,
+    category_iucn = iucnRedListCategory,
+    category_sinac = `SINAC R- SINAC-CONAC-092-2017`,
+    category_minae = `25700-MINAE`
+  )
+```
+
+**Columnas de la lista de especies (después de la reducción y del cambio de nombres)**
+
+```{r}
+#| label: visualizacion-columnas-lista-especies
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de las columnas"
+
+# Nombres de las columnas de la lista de especies
+colnames(lista_especies_01_depurada_basica_02_columnas_reducidas)
+```
+
+## Corrección de nombres de especies con espacios en blanco, caracteres especiales y palabras adicionales
+Se removieron espacios en blanco innecesarios (al inicio, al final y en el interior), caracteres especiales (*, #, $, etc.) y palabras adicionales en los nombres de las especies.
+
+```{r}
+#| label: depuracion-basica-correccion-espacios
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la corrección de nombres de especies con espacios en blanco, caracteres especiales y palabras adicionales"
+
+# Corrección de nombres de especies con espacios en blanco, 
+# caracteres especiales y palabras adicionales.
+# El nombre corregido se guarda en la columna `name` porque así lo requiere
+# la función rgbif::name_backbone_checklist().
+lista_especies_01_depurada_basica_03_espacios_corregidos <- 
+  lista_especies_01_depurada_basica_02_columnas_reducidas |>
+  mutate(name = nombre_especie_depurado(species)) |>
+  mutate(is_cleaned_name = species != name)
+```
+
+::: {.callout-note title="Cantidad de nombres de especies con espacios en blanco, caracteres especiales y palabras adicionales corregidos"}
+`r nrow(filter(lista_especies_01_depurada_basica_03_espacios_corregidos, is_cleaned_name))`
+:::
+
+**Lista de nombres de especies con espacios en blanco, caracteres especiales y palabras adicionales corregidos**
+
+```{r}
+#| label: visualizacion-lista-nombres-especies-espacios-corregidos
+#| code-fold: true
+#| code-summary: "Código para la visualización de los nombres de especies con espacios en blanco, caracteres especiales y palabras adicionales corregidos"
+
+# Visualización de nombres de especies con espacios en blanco, 
+# caracteres especiales y palabras adicionales corregidos
+lista_especies_01_depurada_basica_03_espacios_corregidos |>
+  dplyr::select(species, name, is_cleaned_name) |>
+  filter(is_cleaned_name) |>
+  arrange(species) |>  
+  rename(
+    "Nombre original de la especie" = species,
+    "Nombre corregido" = name,
+    "¿Se corrigió el nombre de la especie?" = is_cleaned_name
+  )
+```
+
+## Visualización de la lista resultante de la depuración básica
+Se muestra la lista de especies depurada, como resultado de los procedimientos descritos en las secciones anteriores.
+
+**Lista de especies resultante de la depuración básica**
+
+```{r}
+#| label: visualizacion-lista-especies-depurada-basica-final
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de la lista"
+
+# Lista depurada básica final
+lista_especies_01_depurada_basica_04_final <-
+  lista_especies_01_depurada_basica_03_espacios_corregidos
+
+
+# Visualización de la lista depurada básica final
+lista_especies_01_depurada_basica_04_final |>
+  dplyr::select(
+    species, name, is_cleaned_name, 
+    category_cites, category_iucn, category_sinac, category_minae
+  ) |>
+  arrange(species) |>
+  datatable(
+    rownames = FALSE,
+    extensions = c("Buttons"),
+    options = list(
+      searchHighlight = TRUE,
+      pageLength = 5,
+      language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json'),
+      dom = 'Bfrtlip',
+      buttons = list(
+        list(extend='copy', text='Copiar'),
+        list(extend='print', text='Imprimir'),
+        list(
+          extend = 'collection',
+          buttons = list(
+            list(
+              extend='csv', 
+              title=paste("Lista de especies de", TEMA_LISTA_ESPECIES, "resultante de la depuración básica"),
+              text='CSV'
+            ),
+            list(
+              extend='excel', 
+              title=paste("Lista de especies de", TEMA_LISTA_ESPECIES, "resultante de la depuración básica"),
+              text='Excel'
+            ),
+            list(
+              extend='pdf', 
+              title=paste("Lista de especies de", TEMA_LISTA_ESPECIES, "resultante de la depuración básica"),
+              text='PDF'
+            )
+          ), 
+          text = 'Descargar'
+        )
+      )
+    )
+  )
+```
+
+::: {.callout-note title="Cantidad de registros en la lista de especies resultante de la depuración básica"}
+`r nrow(lista_especies_01_depurada_basica_04_final)`
+:::
+
+# Depuración taxonómica
+En esta etapa, se corrigieron errores ortográficos en los nombres de especies y se eliminaron aquellos sinónimos en los que el nombre aceptado está también en la lista.
+
+El resultado del proceso de depuración taxonómica se almacenó en una lista separada.
+
+## Búsqueda de nombres de especies en la taxonomía de referencia de GBIF
+Los nombres de especies de la lista depurada se buscaron, mediante el API de GBIF, en la [taxonomía de referencia de GBIF (GBIF Backbone Taxonomy)](https://www.gbif.org/dataset/d7dddbf4-2cf0-4f39-9b2a-bb099caae36c), la cual retornó una lista con los mismos nombres de especies, pero enriquecida con elementos de datos adicionales como, entre otros:
+
+- Nombre científico (género + epíteto específico + autores).
+- Niveles taxonómicos (reino, clase, ..., familia, género, especie).
+- Estado (aceptado, sinónimo).
+- Exactitud de la búsqueda (exacta, difusa).
+- Nivel de confianza de la búsqueda (0...99).
+
+```{r}
+#| label: busqueda-taxonomia-referencia-gbif-1
+#| code-fold: true
+#| code-summary: "Código para la búsqueda en la taxonomía de referencia de GBIF"
+
+# Búsqueda de nombres de especies en la taxonomía de referencia de GBIF
+lista_especies_02_depurada_taxonomica_00_inicial <- 
+  name_backbone_checklist(
+    name_data = lista_especies_01_depurada_basica_04_final, 
+    kingdom = REINO,
+    strict = TRUE
+)
+```
+
+**Lista de especies enriquecida con la taxonomía de referencia de GBIF**
+
+```{r}
+#| label: visualizacion-lista-especies-depurada-taxonomica-inicial
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de la lista"
+
+# Visualización de la lista de especies enriquecida 
+# con la taxonomía de referencia de GBIF
+lista_especies_02_depurada_taxonomica_00_inicial |>
+  arrange(species) |>
+  datatable(
+    rownames = FALSE,
+    extensions = c("Buttons"),
+    options = list(
+      searchHighlight = TRUE,
+      pageLength = 5,
+      language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json'),
+      dom = 'Bfrtlip',
+      buttons = list(
+        list(extend='copy', text='Copiar'),
+        list(extend='print', text='Imprimir'),
+        list(
+          extend = 'collection',
+          buttons = list(
+            list(
+              extend='csv', 
+              title=paste("Lista de especies de", TEMA_LISTA_ESPECIES, "enriquecida con la taxonomía de referencia de GBIF"),
+              text='CSV'
+            ),
+            list(
+              extend='excel', 
+              title=paste("Lista de especies de", TEMA_LISTA_ESPECIES, "enriquecida con la taxonomía de referencia de GBIF"),
+              text='Excel'
+            ),
+            list(
+              extend='pdf', 
+              title=paste("Lista de especies de", TEMA_LISTA_ESPECIES, "enriquecida con la taxonomía de referencia de GBIF"),
+              text='PDF'
+            )
+          ), 
+          text = 'Descargar'
+        )
+      )
+    )
+  )
+```
+
+::: {.callout-note title="Cantidad de registros en la lista de especies enriquecida con la taxonomía de referencia de GBIF"}
+`r nrow(lista_especies_02_depurada_taxonomica_00_inicial)`
+:::
+
+## Corrección de nombres de especies con errores ortográficos
+La lista taxonomía de referencia de GBIF se utilizó para detectar y corregir errores ortográficos en los nombres de especies de la lista depurada.
+
+**Lista de nombres de especies con errores ortográficos**
+
+```{r}
+#| label: visualizacion-lista-nombres-especies-errores-ortograficos-1
+#| code-fold: true
+#| code-summary: "Código para la visualización de la lista"
+
+# Generación de la lista de nombres de especies con errores ortográficos
+nombres_especies_errores_ortograficos_1 <-
+  lista_especies_01_depurada_basica_04_final |>
+  select(name) |>
+  arrange(name) |>
+  filter(!name %in% lista_especies_02_depurada_taxonomica_00_inicial$canonicalName)
+  
+# Visualización
+nombres_especies_errores_ortograficos_1 |>
+  rename(
+    "Nombre de la especie" = name
+  )
+```
+
+::: {.callout-note title="Cantidad de nombres de especies con errores ortográficos"}
+`r nrow(nombres_especies_errores_ortograficos_1)`
+:::
+
+Con la taxonomía de referencia de GBIF, se encontraron los nombres de especies correctos y se procedió a realizar la corrección.
+
+```{r}
+#| label: depuracion-taxonomica-correccion-ortografica
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la corrección de errores ortográficos"
+
+# Corrección de errores ortográficos
+lista_especies_01_depurada_basica_04_final_01_ortografia_corregida <- 
+  lista_especies_01_depurada_basica_04_final |>
+  mutate(
+    name = case_when(
+      name == 'Cycnoches tondozii' ~ "Cycnoches tonduzii",
+      name == 'Cycnoches ventricossum' ~ "Cycnoches ventricosum",
+      name == 'Macrademia brassavolae' ~ "Macradenia brassavolae",
+      name == 'Oncidium schoederianum' ~ "Oncidium schroederianum",
+      name == 'Rossioglossum shlieperianum' ~ "Rossioglossum schlieperianum",
+      TRUE ~ name
+    )
+  )
+```
+
+Luego de la modificación, se revisó nuevamente la presencia de registros duplicados.
+
+**Lista de nombres de especies duplicados**
+
+```{r}
+#| label: visualizacion-lista-nombres-especies-duplicados-3
+#| code-fold: true
+#| code-summary: "Código para la visualización de la lista"
+
+# Generación de la lista de nombres de especies duplicados
+nombres_especies_duplicados_3 <-
+  lista_especies_01_depurada_basica_04_final_01_ortografia_corregida |>
+  group_by(name) |>
+  summarize(n = n()) |>
+  filter(n > 1)
+  
+# Visualización de la lista
+nombres_especies_duplicados_3 |>
+  rename(
+    "Nombre de la especie" = name,
+    "Cantidad de registros" = n
+  )
+```
+
+::: {.callout-note title="Cantidad de nombres de especies duplicados"}
+`r nrow(nombres_especies_duplicados_3)`
+:::
+
+Se examinaron los registros con nombres de especies duplicados, se identificaron los que debían ser borrados y se borraron.
+
+```{r}
+#| label: depuracion-taxonomica-borrado-duplicados
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para el borrado de registros"
+
+# Borrado de registros con nombres de especies duplicados
+lista_especies_01_depurada_basica_04_final_02_duplicados_borrados <-
+  lista_especies_01_depurada_basica_04_final_01_ortografia_corregida |>
+  filter(!(name %in% nombres_especies_duplicados_3$name & is.na(speciesKey)))
+```
+
+**Lista de nombres de especies duplicados (para verificar el borrado)**
+
+```{r}
+#| label: visualizacion-lista-nombres-especies-duplicados-4
+#| code-fold: true
+#| code-summary: "Código para la visualización de la lista"
+
+# Generación de la lista de nombres de especies duplicados
+nombres_especies_duplicados_4 <-
+  lista_especies_01_depurada_basica_04_final_02_duplicados_borrados |>
+  group_by(name) |>
+  summarize(n = n()) |>
+  filter(n > 1)
+  
+# Visualización de la lista
+nombres_especies_duplicados_4 |>
+  rename(
+    "Nombre de la especie" = name,
+    "Cantidad de registros" = n
+  )
+```
+
+::: {.callout-note title="Cantidad de nombres de especies duplicados (para verificar el borrado)"}
+`r nrow(nombres_especies_duplicados_4)`
+:::
+
+::: {.callout-note title="Cantidad de registros en la lista depurada de especies (después de borrar los duplicados)"}
+`r nrow(lista_especies_01_depurada_basica_04_final_02_duplicados_borrados)`
+:::
+
+Se realizó nuevamente la búsqueda en la lista taxonómica de referencia de GBIF, para verificar la corrección ortográfica.
+
+```{r}
+#| label: busqueda-taxonomia-referencia-gbif-2
+#| code-fold: true
+#| code-summary: "Código para la búsqueda en la taxonomía de referencia de GBIF"
+
+# Búsqueda en la taxonomía de referencia de GBIF
+lista_especies_02_depurada_taxonomica_01_ortografia_corregida <- 
+  name_backbone_checklist(
+    name_data = lista_especies_01_depurada_basica_04_final_02_duplicados_borrados, 
+    kingdom = REINO,
+    strict = TRUE
+)
+```
+
+**Lista de nombres de especies con errores ortográficos) (para verificar la corrección ortográfica)**
+
+```{r}
+#| label: visualizacion-lista-nombres-especies-errores-ortograficos-2
+#| code-fold: true
+#| code-summary: "Código para la visualización de la lista"
+
+# Generación de la lista de nombres de especies con errores ortográficos
+nombres_especies_errores_ortograficos_2 <-
+  lista_especies_01_depurada_basica_04_final_02_duplicados_borrados |>
+  select(name) |>
+  arrange(name) |>
+  filter(!name %in% lista_especies_02_depurada_taxonomica_01_ortografia_corregida$canonicalName)
+  
+# Visualización de la lista
+nombres_especies_errores_ortograficos_2 |>
+  rename(
+    "Nombre de la especie" = name
+  )
+```
+
+::: {.callout-note title="Cantidad de nombres de especies con errores ortográficos (para verificar la corrección ortográfica)"}
+`r nrow(nombres_especies_errores_ortograficos_2)`
+:::
+
+## Borrado de sinónimos o de nombres aceptados cuando ambos se encuentran en la lista de especies
+
+**Lista de sinónimos para los que el nombre aceptado se encuentra también en la lista de especies**
+
+```{r}
+#| label: visualizacion-lista-sinonimos-con-nombre-aceptado-1
+#| code-fold: true
+#| code-summary: "Código para la visualización de la lista"
+
+# Lista de sinónimos para los que el nombre aceptado se encuentra también en la lista de especies
+sinonimos_con_nombre_aceptado_1 <-
+  lista_especies_02_depurada_taxonomica_01_ortografia_corregida |>
+  filter(synonym & species %in% lista_especies_02_depurada_taxonomica_01_ortografia_corregida$canonicalName) |>  
+  select(canonicalName, species)
+  
+# Visualización
+sinonimos_con_nombre_aceptado_1 |>
+  rename(
+    "Sinónimo" = canonicalName,
+    "Nombre aceptado" = species
+  )
+```
+
+::: {.callout-note title="Cantidad de sinónimos para los que el nombre aceptado se encuentra también en la lista de especies"}
+`r nrow(sinonimos_con_nombre_aceptado_1)`
+:::
+
+Se borró el sinónimo o el nombre aceptado para cada par de la lista anterior.
+
+```{r}
+#| label: depuracion-borrado-sinonimos-con-nombre-aceptado
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para el borrado sinónimos para los que el nombre aceptado se encuentra también en la lista de especies"
+
+# Borrado de sinónimos para los que el nombre aceptado 
+# se encuentra también en la lista de especies
+
+# Primer método que se ensayó:
+# Conservar el nombre aceptado y borrar el sinónimo.
+# Se descartó porque, al parecer, en la lista
+# original no siempre se prefiere el nombre aceptado cuando también está
+# presente el sinónimo
+#lista_especies_02_depurada_taxonomica_02_sinonimos_redundantes_borrados <- 
+#  lista_especies_02_depurada_taxonomica_01_ortografia_corregida |>
+#  filter(!canonicalName %in% sinonimos_con_nombre_aceptado_1$canonicalName)
+
+
+# Segundo método (actual):
+# Se conservó el nombre para el cual el campo `speciesKey` es `NA`.
+# Si hay un "empate", se conserva el nombre aceptado.
+lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida <-
+  lista_especies_01_depurada_basica_04_final_02_duplicados_borrados
+
+for(i in 1:nrow(sinonimos_con_nombre_aceptado_1)) {
+  sinonimo <- sinonimos_con_nombre_aceptado_1$canonicalName[i]
+  nombre_aceptado <- sinonimos_con_nombre_aceptado_1$species[i]
+  
+  key_sinonimo <- 
+    lista_especies_01_depurada_basica_04_final_02_duplicados_borrados |>
+    filter(name == sinonimo) |>
+    pull(speciesKey)
+  
+  key_nombre_aceptado <- 
+    lista_especies_01_depurada_basica_04_final_02_duplicados_borrados |>
+    filter(name == nombre_aceptado) |>
+    pull(speciesKey)
+  
+  # print(paste(
+  #   "Sinónimo: ", sinonimo, key_sinonimo, 
+  #   "Nombre aceptado: ", nombre_aceptado, key_nombre_aceptado
+  # ))
+  
+  if (is.na(key_sinonimo) & !is.na(key_nombre_aceptado)) {
+    lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida <-
+      lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida |>
+      filter(speciesKey != key_nombre_aceptado | is.na(speciesKey))
+  } else if (!is.na(key_sinonimo) & is.na(key_nombre_aceptado)) {
+    lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida <-
+      lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida |>
+      filter(speciesKey != key_nombre_aceptado | is.na(speciesKey))
+  } else if (!is.na(key_sinonimo) & !is.na(key_nombre_aceptado)) {
+    lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida <-
+      lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida |>
+      filter(speciesKey != key_sinonimo | is.na(speciesKey))
+  } else {
+    lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida <-
+      lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida |>
+      filter(name != sinonimo)    
+  }
+}
+```
+
+Se realizó nuevamente la búsqueda en la lista taxonómica de referencia de GBIF, para verificar la sinonimia.
+
+```{r}
+#| label: busqueda-taxonomia-referencia-gbif-3
+#| code-fold: true
+#| code-summary: "Código para la búsqueda en la taxonomía de referencia de GBIF"
+
+# Búsqueda en la taxonomía de referencia de GBIF
+lista_especies_02_depurada_taxonomica_02_sinonimia_corregida <- 
+  name_backbone_checklist(
+    name_data = lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida, 
+    kingdom = REINO,
+    strict = TRUE
+)
+```
+
+**Lista de sinónimos para los que el nombre aceptado se encuentra también en la lista de especies (para verificar la corrección de la sinonimia)**
+
+```{r}
+#| label: visualizacion-lista-sinonimos-con-nombre-aceptado-2
+#| code-fold: true
+#| code-summary: "Código para la visualización de la lista"
+
+# Lista de sinónimos para los que el nombre aceptado se encuentra también en la lista de especies
+sinonimos_con_nombre_aceptado_2 <-
+  lista_especies_02_depurada_taxonomica_02_sinonimia_corregida |>
+  filter(synonym & species %in% lista_especies_02_depurada_taxonomica_02_sinonimia_corregida$canonicalName) |>  
+  select(canonicalName, species)
+  
+# Visualización
+sinonimos_con_nombre_aceptado_2 |>
+  rename(
+    "Sinónimo" = canonicalName,
+    "Nombre aceptado" = species
+  )
+```
+
+::: {.callout-note title="Cantidad de sinónimos para los que el nombre aceptado se encuentra también en la lista de especies (para verificar la corrección de la sinonimia)"}
+`r nrow(sinonimos_con_nombre_aceptado_2)`
+:::
+
+## Visualización de la lista resultante de la depuración taxonómica
+Se muestra la lista de especies depurada desde el punto de vista taxonómico.
+
+**Lista de especies resultante de la depuración taxonómica**
+
+```{r}
+#| label: visualizacion-lista-especies-depurada-taxonomica-final
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de la lista"
+
+# Lista depurada taxonómica final
+lista_especies_02_depurada_taxonomica_03_final <-
+  lista_especies_02_depurada_taxonomica_02_sinonimia_corregida
+
+# Visualización de la lista depurada taxonómica final
+lista_especies_02_depurada_taxonomica_03_final |>
+  arrange(scientificName) |>
+  datatable(
+    rownames = FALSE,
+    extensions = c("Buttons"),
+    options = list(
+      searchHighlight = TRUE,
+      pageLength = 5,
+      language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json'),
+      dom = 'Bfrtlip',
+      buttons = list(
+        list(extend='copy', text='Copiar'),
+        list(extend='print', text='Imprimir'),
+        list(
+          extend = 'collection',
+          buttons = list(
+            list(
+              extend='csv', 
+              title=paste("Lista de especies de", TEMA_LISTA_ESPECIES, "resultante de la depuración taxonómica"),
+              text='CSV'
+            ),
+            list(
+              extend='excel', 
+              title=paste("Lista de especies de", TEMA_LISTA_ESPECIES, "resultante de la depuración taxonómica"),
+              text='Excel'
+            ),
+            list(
+              extend='pdf', 
+              title=paste("Lista de especies de", TEMA_LISTA_ESPECIES, "resultante de la depuración taxonómica"),
+              text='PDF'
+            )
+          ), 
+          text = 'Descargar'
+        )
+      )
+    )
+  )
+```
+
+::: {.callout-note title="Cantidad de registros en la lista de especies resultante de la depuración taxonómica"}
+`r nrow(lista_especies_02_depurada_taxonomica_03_final)`
+:::
+
+# Integración de la depuración básica y la depuración taxonómica
+Por último, se realizó la unión (*join*) de la depuración básica y la depuración taxonómica en una única lista. El resultado se almacenó en el directorio 
+
+## Unión de las listas depuradas
+
+```{r}
+#| label: union-listas-depuracion-basica-depuracion-taxonomica
+#| code-fold: true
+#| code-summary: "Código para la unión de las listas con depuración básica y depuración taxonómica"
+
+# Unión de las listas con depuración básica y depuración taxonómica
+lista_especies_03_final <-
+  lista_especies_02_depurada_taxonomica_03_final |>
+  left_join(
+    dplyr::select(
+      lista_especies_01_depurada_basica_04_final_02_duplicados_borrados,
+      name, category_cites, category_iucn, category_sinac, category_minae
+    ),
+    by = c("canonicalName" = "name")
+  )
+```
+
+## Visualización de la lista depurada final
+
+**Lista depurada final de especies**
+
+```{r}
+#| label: visualizacion-lista-especies-final
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de la lista"
+
+# Visualización de la lista de especies final
+lista_especies_03_final |>
+  arrange(scientificName) |>
+  datatable(
+    rownames = FALSE,
+    extensions = c("Buttons"),
+    options = list(
+      searchHighlight = TRUE,
+      pageLength = 5,
+      language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json'),
+      dom = 'Bfrtlip',
+      buttons = list(
+        list(extend='copy', text='Copiar'),
+        list(extend='print', text='Imprimir'),
+        list(
+          extend = 'collection',
+          buttons = list(
+            list(
+              extend='csv', 
+              title=cat("Lista depurada final de especies de", TEMA_LISTA_ESPECIES),
+              text='CSV'
+            ),
+            list(
+              extend='excel', 
+              title=cat("Lista depurada final de especies de", TEMA_LISTA_ESPECIES),
+              text='Excel'
+            ),
+            list(
+              extend='pdf', 
+              title=cat("Lista depurada final de especies de", TEMA_LISTA_ESPECIES),
+              text='PDF'
+            )
+          ), 
+          text = 'Descargar'
+        )
+      )
+    )
+  )
+```
+
+::: {.callout-note title="Cantidad de registros en la lista final de especies"}
+`r nrow(lista_especies_03_final)`
+:::
+
+## Almacenamiento de la lista depurada final
+La lista final se almacenó en un archivo CSV.
+
+```{r}
+#| label: almacenamiento-lista-especies-final
+#| code-fold: true
+#| code-summary: "Código para el almacenamiento de la lista"
+
+# Almacenamiento de la lista original de especies
+lista_especies_03_final |> 
+  write_csv(ARCHIVO_LISTA_ESPECIES_FINAL)
+```
+
+::: {.callout-note title="Archivo con la lista final de especies"}
+`r ARCHIVO_LISTA_ESPECIES_FINAL`
+:::
