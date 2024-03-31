@@ -15,10 +15,11 @@ docker build -t biodatacr-r-433 .
 ```shell
 # Ejecución del contenedor Docker
 # (el directorio local debe especificarse en la opción -v)
+# (el archivo con variables de ambiente debe especificarse en la opción --env-file)
 docker run -d --name biodatacr-r-433 \
   -p 8787:8787 \
   -v /home/mfvargas/biodatacr/github/mapas-psa-biodiversidad-2024:/home/rstudio \
-  -e PASSWORD=biodatacr \
+  --env-file /home/mfvargas/biodatacr-r-433.env \
   biodatacr-r-433
 ```
   
@@ -35,4 +36,16 @@ docker start biodatacr-r-433
 
 # Borrado del contenedor Docker
 docker rm biodatacr-r-433
+```
+
+### Ejemplo de contenido del archivo `biodatacr-r-433.env`
+(deben asignarse valores adecuados a las variables)
+```shell
+# Clave para ingresar a RStudio
+PASSWORD=biodatacr
+
+# Variables para acceso al API de GBIF
+GBIF_USER=usuario_gbif
+GBIF_PWD=clave_gbif
+GBIF_EMAIL=correo_gbif
 ```
