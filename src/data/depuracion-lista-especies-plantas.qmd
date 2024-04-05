@@ -348,6 +348,122 @@ lista_especies_01_depurada_basica_03_espacios_corregidos |>
   )
 ```
 
+## Corrección de valores en las columnas de categorías de conservación
+Se corrigieron valores incorrectos en las columnas correspondientes a las categorías de conservación de CITES, IUCN, SINAC y MINAE.
+
+```{r}
+#| label: lista-depuracion-categorias-conservacion
+#| code-fold: true
+#| code-summary: "Código para la creación de la lista para la corrección de categorías de conservación"
+
+# Creación de la lista
+lista_especies_01_depurada_basica_04_columnas_conservacion_corregidas <- 
+  lista_especies_01_depurada_basica_03_espacios_corregidos
+```
+
+### CITES
+
+**Valores en la columna de categorías de CITES**
+
+```{r}
+#| label: visualizacion-valores-cites
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de valores de la columna de categorías de CITES"
+
+# Valores de la columna
+unique(lista_especies_01_depurada_basica_04_columnas_conservacion_corregidas$category_cites)
+```
+
+Se corrigieron los registros con valores incorrectos.
+
+```{r}
+#| label: depuracion-basica-correccion-valores-cites
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la corrección de valores de la columna de categorías de CITES"
+
+# Corrección valores
+lista_especies_01_depurada_basica_04_columnas_conservacion_corregidas <- 
+  lista_especies_01_depurada_basica_04_columnas_conservacion_corregidas |>
+  mutate(
+    category_cites = case_when(
+      category_cites == 'Taxon No Listado' ~ NA,
+      category_cites == 'NC' ~ NA,
+      category_cites == 'NA' ~ NA,
+      category_cites == 'II/NC' ~ NA,
+      category_cites == 'No hay información de CITES' ~ NA,
+      TRUE ~ category_cites
+    )
+  )
+```
+
+**Valores en la columna de categorías de CITES (para verificar la corrección)**
+
+```{r}
+#| label: correccion-valores-cites
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de valores de la columna de categorías de CITES"
+
+# Valores de la columna
+unique(lista_especies_01_depurada_basica_04_columnas_conservacion_corregidas$category_cites)
+```
+
+### IUCN
+
+**Valores en la columna de categorías de IUCN**
+
+```{r}
+#| label: visualizacion-valores-iucn
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de valores de la columna de categorías de IUCN"
+
+# Valores de la columna
+unique(lista_especies_01_depurada_basica_04_columnas_conservacion_corregidas$category_iucn)
+```
+
+No se encontraron valores incorrectos.
+
+### SINAC
+
+**Valores en la columna de categorías de SINAC**
+
+```{r}
+#| label: visualizacion-valores-sinac
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de valores de la columna de categorías de SINAC"
+
+# Valores de la columna
+unique(lista_especies_01_depurada_basica_04_columnas_conservacion_corregidas$category_sinac)
+```
+
+No se encontraron valores incorrectos.
+
+### MINAE
+
+**Valores en la columna de categorías de MINAE**
+
+```{r}
+#| label: visualizacion-valores-minae
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de valores de la columna de categorías de MINAE"
+
+# Valores de la columna
+unique(lista_especies_01_depurada_basica_04_columnas_conservacion_corregidas$category_minae)
+```
+
+No se encontraron valores incorrectos.
+
 ## Visualización de la lista resultante de la depuración básica
 Se muestra la lista de especies depurada, como resultado de los procedimientos descritos en las secciones anteriores.
 
@@ -361,12 +477,12 @@ Se muestra la lista de especies depurada, como resultado de los procedimientos d
 #| code-summary: "Código para la visualización de la lista"
 
 # Lista depurada básica final
-lista_especies_01_depurada_basica_04_final <-
-  lista_especies_01_depurada_basica_03_espacios_corregidos
+lista_especies_01_depurada_basica_05_final <-
+  lista_especies_01_depurada_basica_04_columnas_conservacion_corregidas
 
 
 # Visualización de la lista depurada básica final
-lista_especies_01_depurada_basica_04_final |>
+lista_especies_01_depurada_basica_05_final |>
   dplyr::select(
     species, name, is_cleaned_name, 
     category_cites, category_iucn, category_sinac, category_minae
@@ -410,7 +526,7 @@ lista_especies_01_depurada_basica_04_final |>
 ```
 
 ::: {.callout-note title="Cantidad de registros en la lista de especies resultante de la depuración básica"}
-`r nrow(lista_especies_01_depurada_basica_04_final)`
+`r nrow(lista_especies_01_depurada_basica_05_final)`
 :::
 
 # Depuración taxonómica
@@ -435,7 +551,7 @@ Los nombres de especies de la lista depurada se buscaron, mediante el API de GBI
 # Búsqueda de nombres de especies en la taxonomía de referencia de GBIF
 lista_especies_02_depurada_taxonomica_00_inicial <- 
   name_backbone_checklist(
-    name_data = lista_especies_01_depurada_basica_04_final, 
+    name_data = lista_especies_01_depurada_basica_05_final, 
     kingdom = REINO,
     strict = TRUE
 )
@@ -507,7 +623,7 @@ La lista taxonomía de referencia de GBIF se utilizó para detectar y corregir e
 
 # Generación de la lista de nombres de especies con errores ortográficos
 nombres_especies_errores_ortograficos_1 <-
-  lista_especies_01_depurada_basica_04_final |>
+  lista_especies_01_depurada_basica_05_final |>
   select(name) |>
   arrange(name) |>
   filter(!name %in% lista_especies_02_depurada_taxonomica_00_inicial$canonicalName)
@@ -533,8 +649,8 @@ Con la taxonomía de referencia de GBIF, se encontraron los nombres de especies 
 #| code-summary: "Código para la corrección de errores ortográficos"
 
 # Corrección de errores ortográficos
-lista_especies_01_depurada_basica_04_final_01_ortografia_corregida <- 
-  lista_especies_01_depurada_basica_04_final |>
+lista_especies_01_depurada_basica_05_final_01_ortografia_corregida <- 
+  lista_especies_01_depurada_basica_05_final |>
   mutate(
     name = case_when(
       name == 'Cycnoches tondozii' ~ "Cycnoches tonduzii",
@@ -558,7 +674,7 @@ Luego de la modificación, se revisó nuevamente la presencia de registros dupli
 
 # Generación de la lista de nombres de especies duplicados
 nombres_especies_duplicados_3 <-
-  lista_especies_01_depurada_basica_04_final_01_ortografia_corregida |>
+  lista_especies_01_depurada_basica_05_final_01_ortografia_corregida |>
   group_by(name) |>
   summarize(n = n()) |>
   filter(n > 1)
@@ -585,8 +701,8 @@ Se examinaron los registros con nombres de especies duplicados, se identificaron
 #| code-summary: "Código para el borrado de registros"
 
 # Borrado de registros con nombres de especies duplicados
-lista_especies_01_depurada_basica_04_final_02_duplicados_borrados <-
-  lista_especies_01_depurada_basica_04_final_01_ortografia_corregida |>
+lista_especies_01_depurada_basica_05_final_02_duplicados_borrados <-
+  lista_especies_01_depurada_basica_05_final_01_ortografia_corregida |>
   filter(!(name %in% nombres_especies_duplicados_3$name & is.na(speciesKey)))
 ```
 
@@ -599,7 +715,7 @@ lista_especies_01_depurada_basica_04_final_02_duplicados_borrados <-
 
 # Generación de la lista de nombres de especies duplicados
 nombres_especies_duplicados_4 <-
-  lista_especies_01_depurada_basica_04_final_02_duplicados_borrados |>
+  lista_especies_01_depurada_basica_05_final_02_duplicados_borrados |>
   group_by(name) |>
   summarize(n = n()) |>
   filter(n > 1)
@@ -617,7 +733,7 @@ nombres_especies_duplicados_4 |>
 :::
 
 ::: {.callout-note title="Cantidad de registros en la lista depurada de especies (después de borrar los duplicados)"}
-`r nrow(lista_especies_01_depurada_basica_04_final_02_duplicados_borrados)`
+`r nrow(lista_especies_01_depurada_basica_05_final_02_duplicados_borrados)`
 :::
 
 Se realizó nuevamente la búsqueda en la lista taxonómica de referencia de GBIF, para verificar la corrección ortográfica.
@@ -630,7 +746,7 @@ Se realizó nuevamente la búsqueda en la lista taxonómica de referencia de GBI
 # Búsqueda en la taxonomía de referencia de GBIF
 lista_especies_02_depurada_taxonomica_01_ortografia_corregida <- 
   name_backbone_checklist(
-    name_data = lista_especies_01_depurada_basica_04_final_02_duplicados_borrados, 
+    name_data = lista_especies_01_depurada_basica_05_final_02_duplicados_borrados, 
     kingdom = REINO,
     strict = TRUE
 )
@@ -645,7 +761,7 @@ lista_especies_02_depurada_taxonomica_01_ortografia_corregida <-
 
 # Generación de la lista de nombres de especies con errores ortográficos
 nombres_especies_errores_ortograficos_2 <-
-  lista_especies_01_depurada_basica_04_final_02_duplicados_borrados |>
+  lista_especies_01_depurada_basica_05_final_02_duplicados_borrados |>
   select(name) |>
   arrange(name) |>
   filter(!name %in% lista_especies_02_depurada_taxonomica_01_ortografia_corregida$canonicalName)
@@ -713,20 +829,20 @@ Se borró el sinónimo o el nombre aceptado para cada par de la lista anterior.
 # Segundo método (actual):
 # Se conservó el nombre para el cual el campo `speciesKey` es `NA`.
 # Si hay un "empate", se conserva el nombre aceptado.
-lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida <-
-  lista_especies_01_depurada_basica_04_final_02_duplicados_borrados
+lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida <-
+  lista_especies_01_depurada_basica_05_final_02_duplicados_borrados
 
 for(i in 1:nrow(sinonimos_con_nombre_aceptado_1)) {
   sinonimo <- sinonimos_con_nombre_aceptado_1$canonicalName[i]
   nombre_aceptado <- sinonimos_con_nombre_aceptado_1$species[i]
   
   key_sinonimo <- 
-    lista_especies_01_depurada_basica_04_final_02_duplicados_borrados |>
+    lista_especies_01_depurada_basica_05_final_02_duplicados_borrados |>
     filter(name == sinonimo) |>
     pull(speciesKey)
   
   key_nombre_aceptado <- 
-    lista_especies_01_depurada_basica_04_final_02_duplicados_borrados |>
+    lista_especies_01_depurada_basica_05_final_02_duplicados_borrados |>
     filter(name == nombre_aceptado) |>
     pull(speciesKey)
   
@@ -736,20 +852,20 @@ for(i in 1:nrow(sinonimos_con_nombre_aceptado_1)) {
   # ))
   
   if (is.na(key_sinonimo) & !is.na(key_nombre_aceptado)) {
-    lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida <-
-      lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida |>
+    lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida <-
+      lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida |>
       filter(speciesKey != key_nombre_aceptado | is.na(speciesKey))
   } else if (!is.na(key_sinonimo) & is.na(key_nombre_aceptado)) {
-    lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida <-
-      lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida |>
+    lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida <-
+      lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida |>
       filter(speciesKey != key_nombre_aceptado | is.na(speciesKey))
   } else if (!is.na(key_sinonimo) & !is.na(key_nombre_aceptado)) {
-    lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida <-
-      lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida |>
+    lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida <-
+      lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida |>
       filter(speciesKey != key_sinonimo | is.na(speciesKey))
   } else {
-    lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida <-
-      lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida |>
+    lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida <-
+      lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida |>
       filter(name != sinonimo)    
   }
 }
@@ -765,7 +881,7 @@ Se realizó nuevamente la búsqueda en la lista taxonómica de referencia de GBI
 # Búsqueda en la taxonomía de referencia de GBIF
 lista_especies_02_depurada_taxonomica_02_sinonimia_corregida <- 
   name_backbone_checklist(
-    name_data = lista_especies_01_depurada_basica_04_final_03_sinonimia_corregida, 
+    name_data = lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida, 
     kingdom = REINO,
     strict = TRUE
 )
@@ -871,7 +987,7 @@ lista_especies_03_final <-
   lista_especies_02_depurada_taxonomica_03_final |>
   left_join(
     dplyr::select(
-      lista_especies_01_depurada_basica_04_final_02_duplicados_borrados,
+      lista_especies_01_depurada_basica_05_final_02_duplicados_borrados,
       name, category_cites, category_iucn, category_sinac, category_minae
     ),
     by = c("canonicalName" = "name")

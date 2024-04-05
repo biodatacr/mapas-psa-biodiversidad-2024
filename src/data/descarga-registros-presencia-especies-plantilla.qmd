@@ -1,0 +1,231 @@
+---
+title: "Descarga de registros de presencia de especies de plantas"
+format: 
+  html:
+    lang: es
+    theme: cosmo
+    toc: true
+    toc-expand: 3
+---
+
+# Introducción
+Este documento, elaborado con el sistema de publicación técnica y científica [Quarto](https://quarto.org/), detalla el proceso de ...
+
+El proceso se dividió en n etapas:
+    
+El código fuente de este documento está disponible en [**PENDIENTE**]().
+
+
+```{r}
+#| label: carga-paquetes
+#| echo: false
+#| message: false
+
+# Paquetes
+library(here)
+library(readr)
+library(dplyr)
+library(rgbif)
+library(DT)
+```
+
+# Definición de parámetros generales
+Para comenzar, se definieron algunos parámetros generales del procesamiento en R.
+
+```{r}
+#| label: constantes
+#| code-fold: show
+#| code-summary: "Código para la definición de parámetros generales"
+
+# Archivo con la lista original de especies
+ARCHIVO_LISTA_ESPECIES <- 
+  here("data", "processed", "lista-final-especies-plantas.csv")
+
+# Columna en el archivo original que contiene el nombre de la especie
+COLUMNA_NOMBRE_ESPECIE <- "species"
+
+# Reino para realizar búsquedas en la taxonomía de referencia de GBIF
+REINO <- "Plantae"
+
+# Tema de la lista (para usar en los nombres de archivos de descargas)
+TEMA_LISTA_ESPECIES <- "plantas"
+```
+
+Las rutas especificadas para los archivos se basan en la estructura de directorios para proyectos de ciencia de datos propuesta por la iniciativa [Cookiecutter Data Science](http://drivendata.github.io/cookiecutter-data-science/).
+
+# Carga de la lista de especies
+
+## Carga de la lista
+
+::: {.callout-note title="Archivo con la lista de especies"}
+`r ARCHIVO_LISTA_ESPECIES_
+:::
+
+El archivo se cargó en un cuadro de datos (*data frame*) de R, para su procesamiento.
+
+```{r}
+#| label: carga-lista-especies
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la carga de la lista"
+
+# Carga de la lista de especies
+lista_especies <- read_csv(ARCHIVO_LISTA_ESPECIES) 
+```
+
+## Visualización de la lista de especies
+
+**Lista de especies**
+
+```{r}
+#| label: visualizacion-lista-especies
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de la lista"
+
+# Visualización de la lista original de especies
+lista_especies |>
+  arrange(scientificName) |>
+  datatable(
+    rownames = FALSE,
+    extensions = c("Buttons"),
+    options = list(
+      searchHighlight = TRUE,
+      pageLength = 5,
+      language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json'),
+      dom = 'Bfrtlip',
+      buttons = list(
+        list(extend='copy', text='Copiar'),
+        list(extend='print', text='Imprimir'),
+        list(
+          extend = 'collection',
+          buttons = list(
+            list(
+              extend='csv', 
+              title=paste("Lista de especies de", TEMA_LISTA_ESPECIES),
+              text='CSV'
+            ),
+            list(
+              extend='excel', 
+              title=paste("Lista de especies de", TEMA_LISTA_ESPECIES),
+              text='Excel'
+            ),
+            list(
+              extend='pdf', 
+              title=paste("Lista de especies de", TEMA_LISTA_ESPECIES),
+              text='PDF'
+            )
+          ), 
+          text = 'Descargar'
+        )
+      )
+    )
+  )
+```
+
+::: {.callout-note title="Cantidad de registros en la lista de especies"}
+`r nrow(lista_especies)`
+:::
+
+```{r}
+#| eval: false
+
+taxon_keys <- 
+  lista_especies |>
+  pull(usageKey)
+```
+
+```{r}
+#| eval: false
+
+req <- occ_download(
+  pred_in("taxonKey", taxon_keys[1:3]),
+  pred("country", "CR"),
+  pred("hasCoordinate", TRUE),
+  pred("hasGeospatialIssue", FALSE),
+  format = "SIMPLE_CSV"
+)
+
+# Esperar a que la descarga esté lista y obtener el enlace de descarga
+status <- occ_download_meta(req)
+while(status$status != "SUCCEEDED") {
+  Sys.sleep(60) # Esperar 60 segundos antes de volver a comprobar el estado
+  status <- occ_download_meta(req)
+}
+
+# Descargar el archivo
+occ_download_get(req, path = here("data", "interim"), overwrite = TRUE)
+```
+
+## Visualización de la lista depurada final
+
+**Lista depurada final de especies**
+
+```{r}
+#| label: visualizacion-lista-especies-final
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de la lista"
+
+# Visualización de la lista de especies final
+lista_especies_03_final |>
+  arrange(scientificName) |>
+  datatable(
+    rownames = FALSE,
+    extensions = c("Buttons"),
+    options = list(
+      searchHighlight = TRUE,
+      pageLength = 5,
+      language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json'),
+      dom = 'Bfrtlip',
+      buttons = list(
+        list(extend='copy', text='Copiar'),
+        list(extend='print', text='Imprimir'),
+        list(
+          extend = 'collection',
+          buttons = list(
+            list(
+              extend='csv', 
+              title=cat("Lista depurada final de especies de", TEMA_LISTA_ESPECIES),
+              text='CSV'
+            ),
+            list(
+              extend='excel', 
+              title=cat("Lista depurada final de especies de", TEMA_LISTA_ESPECIES),
+              text='Excel'
+            ),
+            list(
+              extend='pdf', 
+              title=cat("Lista depurada final de especies de", TEMA_LISTA_ESPECIES),
+              text='PDF'
+            )
+          ), 
+          text = 'Descargar'
+        )
+      )
+    )
+  )
+```
+
+::: {.callout-note title="Cantidad de registros en la lista final de especies"}
+`r nrow(lista_especies_03_final)`
+:::
+
+## Almacenamiento de la lista depurada final
+La lista final se almacenó en un archivo CSV.
+
+```{r}
+#| label: almacenamiento-lista-especies-final
+#| code-fold: true
+#| code-summary: "Código para el almacenamiento de la lista"
+
+# Almacenamiento de la lista original de especies
+lista_especies_03_final |> 
+  write_csv(ARCHIVO_LISTA_ESPECIES_FINAL)
+```
+
+::: {.callout-note title="Archivo con la lista final de especies"}
+`r ARCHIVO_LISTA_ESPECIES_FINAL`
+:::
