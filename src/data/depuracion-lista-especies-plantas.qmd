@@ -1106,7 +1106,7 @@ La lista final se almacenó en un archivo CSV.
 
 # Almacenamiento de la lista original de especies
 lista_especies_03_final |> 
-  write_csv(ARCHIVO_LISTA_ESPECIES_FINAL)
+  write_csv(ARCHIVO_LISTA_ESPECIES_FINAL, na = "")
 ```
 
 ::: {.callout-note title="Archivo con la lista final de especies"}
