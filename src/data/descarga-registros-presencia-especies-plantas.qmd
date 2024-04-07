@@ -1,0 +1,375 @@
+---
+title: "Descarga de registros de presencia de especies de plantas"
+format: 
+  html:
+    lang: es
+    theme: cosmo
+    toc: true
+    toc-expand: 3
+---
+
+# Introducción
+Este documento, elaborado con el sistema de publicación técnica y científica [Quarto](https://quarto.org/), detalla el proceso de descarga de registros de presencia de especies agrupados por la [Infraestructura Mundial de Información en Biodiversidad (GBIF)](https://www.gbif.org/). Las especies de los registros están contenidas en una lista. El documento combina texto con salidas generadas por el lenguaje de programación [R](https://www.r-project.org/). Como parte de la implementación del procesamiento en R, se utilizó el paquete [rgbif](https://cran.r-project.org/web/packages/rgbif/) para acceder los servicios web de la [interfaz de programación de aplicaciones (API) de la Infraestructura Mundial de Información en Biodiversidad (GBIF)](https://www.gbif.org/developer/summary) y utilizar los servicios de descarga de datos del portal de datos de GBIF.
+
+El código fuente de este documento está disponible en [**PENDIENTE**]().
+
+
+```{r}
+#| label: carga-paquetes
+#| echo: false
+#| message: false
+
+# Paquetes
+library(here)
+library(readr)
+library(dplyr)
+library(rgbif)
+library(DT)
+```
+
+# Definición de parámetros generales
+Para comenzar, se definieron algunos parámetros generales del procesamiento en R.
+
+```{r}
+#| label: constantes
+#| code-fold: show
+#| code-summary: "Código para la definición de parámetros generales"
+
+# Archivo con la lista original de especies
+ARCHIVO_LISTA_ESPECIES <- 
+  here("data", "processed", "lista-final-especies-plantas.csv")
+
+# Archivo con los registros de presencia de especies descargados
+ARCHIVO_REGISTROS_PRESENCIA_ESPECIES <- 
+  here("data", "processed", "registros-presencia-especies-plantas.csv")
+
+# Directorio de archivos de registros de presencia comprimidos descargados
+DIRECTORIO_ARCHIVOS_DESCARGADOS <-
+  here("data", "interim")
+
+# Cantidad de llaves de taxones por bloque de descarga
+TAMANIO_BLOQUE_DESCARGA <- 650
+
+# Tema de la lista (para usar en los nombres de archivos de descargas)
+TEMA_REGISTROS_PRESENCIA_ESPECIES <- "plantas"
+```
+
+Las rutas especificadas para los archivos se basan en la estructura de directorios para proyectos de ciencia de datos propuesta por la iniciativa [Cookiecutter Data Science](http://drivendata.github.io/cookiecutter-data-science/).
+
+# Carga de la lista de especies
+
+## Carga de la lista
+
+::: {.callout-note title="Archivo con la lista de especies"}
+`r ARCHIVO_LISTA_ESPECIES`
+:::
+
+El archivo se cargó en un cuadro de datos (*data frame*) de R, para su procesamiento.
+
+```{r}
+#| label: carga-lista-especies
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la carga de la lista"
+
+# Carga de la lista de especies
+lista_especies <- read_csv(ARCHIVO_LISTA_ESPECIES) 
+```
+
+## Visualización de la lista de especies
+
+**Lista de especies**
+
+```{r}
+#| label: visualizacion-lista-especies
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de la lista"
+
+# Visualización de la lista original de especies
+lista_especies |>
+  arrange(scientificName) |>
+  datatable(
+    rownames = FALSE,
+    extensions = c("Buttons"),
+    options = list(
+      searchHighlight = TRUE,
+      pageLength = 5,
+      language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json'),
+      dom = 'Bfrtlip',
+      buttons = list(
+        list(extend='copy', text='Copiar'),
+        list(extend='print', text='Imprimir'),
+        list(
+          extend = 'collection',
+          buttons = list(
+            list(
+              extend='csv', 
+              title=paste("Lista de especies de", TEMA_REGISTROS_PRESENCIA_ESPECIES),
+              text='CSV'
+            ),
+            list(
+              extend='excel', 
+              title=paste("Lista de especies de", TEMA_REGISTROS_PRESENCIA_ESPECIES),
+              text='Excel'
+            ),
+            list(
+              extend='pdf', 
+              title=paste("Lista de especies de", TEMA_REGISTROS_PRESENCIA_ESPECIES),
+              text='PDF'
+            )
+          ), 
+          text = 'Descargar'
+        )
+      )
+    )
+  )
+```
+
+::: {.callout-note title="Cantidad de registros en la lista de especies"}
+`r nrow(lista_especies)`
+:::
+
+# Descarga de los registros de presencia
+Los registros de presencia de especies se descargaron, como archivos CSV comprimidos en formato ZIP, del portal de datos de GBIF en bloques de `r TAMANIO_BLOQUE_DESCARGA` especies.
+
+```{r}
+#| label: descarga-registros-presencia
+#| code-fold: show
+#| code-summary: "Código para la descarga de los registros de presencia"
+
+# Llaves (en GBIF) de los taxones (sinónimos o nombres aceptados)
+# de la lista de especies
+# llaves_taxones <- 
+#   lista_especies |>
+#   pull(usageKey)
+
+# Llaves (en GBIF) de los taxones (SOLO nombres aceptados)
+# de la lista de especies
+# Al usar las llaves de los nombres aceptados, se incluyen los sinónimos también
+llaves_taxones <- 
+  lista_especies |>
+  pull(speciesKey)
+
+# Para pruebas
+# llaves_taxones <- llaves_taxones[1:1000]
+
+# Cantidad de llaves de taxones
+cantidad_llaves_taxones <- length(llaves_taxones)
+
+# Cantidad de bloques de descarga
+cantidad_bloques_descarga <- 
+  ceiling(cantidad_llaves_taxones / TAMANIO_BLOQUE_DESCARGA)
+
+# Solicitudes de descarga y descarga de los archivos en formato ZIP
+for(i in 1:cantidad_bloques_descarga) {
+  # Primer y último índice de la lista de especies
+  # para el bloque de descarga
+  inicio <- ((i - 1) * TAMANIO_BLOQUE_DESCARGA) + 1
+  fin <- min(i * TAMANIO_BLOQUE_DESCARGA, cantidad_llaves_taxones)
+  
+  # Para seguimiento de la descarga
+  print(paste("Bloque de descarga de las llaves:", inicio, "-", fin))
+
+  # Solicitud de descarga al API de GBIF
+  solicitud <-
+    occ_download(
+      pred_in("taxonKey", llaves_taxones[inicio:fin]),
+      pred("country", "CR"),
+      pred("hasCoordinate", TRUE),
+      pred("hasGeospatialIssue", FALSE),
+      format = "SIMPLE_CSV"
+    )
+  
+  # Metadatos de la solicitud de descarga
+  metadatos <- occ_download_meta(solicitud)
+  
+  # Espera de la descarga
+  while(metadatos$status != "SUCCEEDED") {
+    Sys.sleep(60) # Esperar 60 segundos antes de volver a comprobar el estado
+    metadatos <- occ_download_meta(solicitud)
+  }
+  
+  # Descarga del archivo
+  occ_download_get(
+    key = solicitud, 
+    path = DIRECTORIO_ARCHIVOS_DESCARGADOS, 
+    overwrite = TRUE
+  )
+}
+```
+
+# Unificación de los registros de presencia descargados
+Los archivos CSV contenidos en los archivos ZIP se unificaron en un único archivo CSV.
+
+## Unificación de los registros de presencia
+
+```{r}
+#| label: unificacion-registros-presencia
+#| code-fold: show
+#| code-summary: "Código para la unificación de los registros de presencia"
+
+# Lista de archivos ZIP descargados
+archivos_zip <- list.files(
+  path = here("data", "interim"), 
+  pattern = "*.zip"
+)
+
+# Data frame para registros de presencia unificados
+registros_presencia_unificados <- NULL
+
+for(archivo_zip in archivos_zip) {
+  # Lectura del archivo CSV
+  registros_presencia <- read_tsv(
+    file = paste0(DIRECTORIO_ARCHIVOS_DESCARGADOS, "/", archivo_zip),
+    show_col_types = FALSE
+  )
+  
+  # Si es el primer archivo, se incluye todo; si no, se excluye la cabecera
+  if(is.null(registros_presencia_unificados)) {
+    registros_presencia_unificados <- registros_presencia
+  } else {
+    registros_presencia_unificados <- bind_rows(
+      registros_presencia_unificados, 
+      registros_presencia
+    )
+  }
+}
+```
+
+## Visualización de los registros de presencia
+
+**Registros de presencia (muestra de 1000 registros)**
+
+```{r}
+#| label: visualizacion-registros-presencia
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de los registros de presencia"
+
+# Visualización de los registros
+registros_presencia_unificados |>
+  slice_sample(n = 1000, replace = TRUE) |>
+  arrange(scientificName) |>
+  datatable(
+    rownames = FALSE,
+    extensions = c("Buttons"),
+    options = list(
+      searchHighlight = TRUE,
+      pageLength = 5,
+      language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json'),
+      dom = 'Bfrtlip',
+      buttons = list(
+        list(extend='copy', text='Copiar'),
+        list(extend='print', text='Imprimir'),
+        list(
+          extend = 'collection',
+          buttons = list(
+            list(
+              extend='csv', 
+              title=paste("Registros de presencia de especies de", TEMA_REGISTROS_PRESENCIA_ESPECIES),
+              text='CSV'
+            ),
+            list(
+              extend='excel', 
+              title=paste("Registros de presencia de especies de", TEMA_REGISTROS_PRESENCIA_ESPECIES),
+              text='Excel'
+            ),
+            list(
+              extend='pdf', 
+              title=paste("Registros de presencia de especies de", TEMA_REGISTROS_PRESENCIA_ESPECIES),
+              text='PDF'
+            )
+          ), 
+          text = 'Descargar'
+        )
+      )
+    )
+  )
+```
+
+::: {.callout-note title="Cantidad de registros de presencia de especies"}
+`r nrow(registros_presencia_unificados)`
+:::
+
+::: {.callout-note title="Cantidad de especies (nombres aceptados) en los registros de presencia"}
+`r length(unique(registros_presencia_unificados$speciesKey))`
+:::
+
+Para control, se muestran las especies de la lista que no tienen registros de presencia.
+
+**Lista de especies sin registros de presencia**
+
+```{r}
+#| label: visualizacion-lista-especies-sin-registros-presencia
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de la lista"
+
+# Visualización de la lista original de especies
+lista_especies |>
+  filter(!speciesKey %in% registros_presencia_unificados$speciesKey) |>
+  arrange(scientificName) |>
+  datatable(
+    rownames = FALSE,
+    extensions = c("Buttons"),
+    options = list(
+      searchHighlight = TRUE,
+      pageLength = 5,
+      language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json'),
+      dom = 'Bfrtlip',
+      buttons = list(
+        list(extend='copy', text='Copiar'),
+        list(extend='print', text='Imprimir'),
+        list(
+          extend = 'collection',
+          buttons = list(
+            list(
+              extend='csv', 
+              title=paste("Lista de especies sin registros de presencia de", TEMA_REGISTROS_PRESENCIA_ESPECIES),
+              text='CSV'
+            ),
+            list(
+              extend='excel', 
+              title=paste("Lista de especies sin registros de presencia de", TEMA_REGISTROS_PRESENCIA_ESPECIES),
+              text='Excel'
+            ),
+            list(
+              extend='pdf', 
+              title=paste("Lista de especies sin registros de presencia de", TEMA_REGISTROS_PRESENCIA_ESPECIES),
+              text='PDF'
+            )
+          ), 
+          text = 'Descargar'
+        )
+      )
+    )
+  )
+```
+
+::: {.callout-note title="Cantidad de especies (nombres aceptados) que están en la lista de especies y no tienen registros de presencia"}
+`r nrow(filter(lista_especies, !speciesKey %in% registros_presencia_unificados$speciesKey))`
+:::
+
+::: {.callout-note title="Cantidad de especies (nombres aceptados) que están en la lista de especies y no tienen registros de presencia"}
+`r nrow(filter(registros_presencia_unificados, !speciesKey %in% lista_especies$speciesKey))`
+:::
+
+## Almacenamiento de los registros de presencia
+
+```{r}
+#| label: almacenamiento-registros-presencia
+#| code-fold: true
+#| code-summary: "Código para el almacenamiento de los registros de presencia"
+
+# Almacenamiento de los registros de presencia
+registros_presencia_unificados |> 
+  write_csv(ARCHIVO_REGISTROS_PRESENCIA_ESPECIES, na = "")
+```
+
+::: {.callout-note title="Archivo con los registros de presencia"}
+`r ARCHIVO_REGISTROS_PRESENCIA_ESPECIES`
+:::
