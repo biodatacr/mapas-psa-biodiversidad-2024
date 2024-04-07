@@ -3,6 +3,9 @@
 ## Depuración de datos
 [Lista de especies de plantas](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/depuracion-lista-especies-plantas.html)
 
+## Descarga de registros de presencia de especies
+[Registros de presencia de especies de plantas](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/descarga-registros-presencia-especies-plantas.html)  
+
 ## Comandos para el manejo de la imagen y del contenedor Docker
 
 ### Generación de la imagen a partir del archivo Dockerfile
