@@ -17,6 +17,7 @@ La depuración se dividió en tres etapas:
     - Borrado de registros con nombres de especies duplicados.
     - Reducción y cambio de nombres de columnas.
     - Corrección de nombres de especies con espacios en blanco, caracteres especiales y palabras adicionales.
+    - Corrección de valores en las columnas de categorías de conservación.
 - Depuración taxonómica:  
     - Corrección de nombres de especies con errores ortográficos.
     - Borrado de sinónimos o de nombres aceptados cuando ambos se encuentran en la lista de especies.
@@ -231,9 +232,16 @@ Se examinaron los registros con nombres de especies duplicados, se identificaron
 #| code-summary: "Código para el borrado de registros"
 
 # Borrado de registros con nombres de especies duplicados
+# Se borran los que tienen NA es speciesKey (los que se agregaron de últimos)
+# lista_especies_01_depurada_basica_01_duplicados_borrados <-
+#   lista_especies_01_depurada_basica_00_inicial |>
+#   filter(!(species %in% nombres_especies_duplicados_1$species & is.na(speciesKey)))
+
+# Borrado de registros con nombres de especies duplicados
+# Se conservan los que tienen NA es speciesKey (los que se agregaron de últimos)
 lista_especies_01_depurada_basica_01_duplicados_borrados <-
   lista_especies_01_depurada_basica_00_inicial |>
-  filter(!(species %in% nombres_especies_duplicados_1$species & is.na(speciesKey)))
+  filter(!(species %in% nombres_especies_duplicados_1$species & !is.na(speciesKey)))
 ```
 
 **Lista de nombres de especies duplicados (para verificar el borrado)**
@@ -701,9 +709,16 @@ Se examinaron los registros con nombres de especies duplicados, se identificaron
 #| code-summary: "Código para el borrado de registros"
 
 # Borrado de registros con nombres de especies duplicados
+# Se borran los que tienen NA es speciesKey (los que se agregaron de últimos)
+# lista_especies_01_depurada_basica_05_final_02_duplicados_borrados <-
+#   lista_especies_01_depurada_basica_05_final_01_ortografia_corregida |>
+#   filter(!(name %in% nombres_especies_duplicados_3$name & is.na(speciesKey)))
+
+# Borrado de registros con nombres de especies duplicados
+# Se conservan los que tienen NA es speciesKey (los que se agregaron de últimos)
 lista_especies_01_depurada_basica_05_final_02_duplicados_borrados <-
-  lista_especies_01_depurada_basica_05_final_01_ortografia_corregida |>
-  filter(!(name %in% nombres_especies_duplicados_3$name & is.na(speciesKey)))
+ lista_especies_01_depurada_basica_05_final_01_ortografia_corregida |>
+ filter(!(name %in% nombres_especies_duplicados_3$name & !is.na(speciesKey)))
 ```
 
 **Lista de nombres de especies duplicados (para verificar el borrado)**
@@ -991,6 +1006,38 @@ lista_especies_03_final <-
       name, category_cites, category_iucn, category_sinac, category_minae
     ),
     by = c("canonicalName" = "name")
+  )
+```
+
+## Correcciones finales
+Se realizaron aquí correcciones que no se realizaron anteriormente.
+
+```{r}
+#| label: correcciones-finales
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para las correcciones finales"
+
+# Correcciones finales en category_cites
+lista_especies_03_final <- 
+  lista_especies_03_final |>
+  mutate(
+    category_cites = case_when(
+      canonicalName == 'Maxillaria egertoniana' ~ "II",
+      TRUE ~ category_cites
+    )
+  )
+
+# Correcciones finales en category_minae
+lista_especies_03_final <- 
+  lista_especies_03_final |>
+  mutate(
+    category_minae = case_when(
+      canonicalName == 'Platymiscium parviflorum' ~ "PELIGRO EXTINCIÓN",
+      canonicalName == 'Tachigali costaricensis' ~ "PELIGRO EXTINCIÓN",
+      TRUE ~ category_minae
+    )
   )
 ```
 
