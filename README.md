@@ -1,10 +1,10 @@
 # Mapas para el Programa de Pago por Servicios Ambientales (PSA) en biodiversidad del año 2024
 
-## Depuración de datos
-[Lista de especies de plantas](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/depuracion-lista-especies-plantas.html)
+## Flujo de trabajo
 
-## Descarga de registros de presencia de especies
-[Registros de presencia de especies de plantas](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/descarga-registros-presencia-especies-plantas.html)  
+### Plantas
+
+[Depuración de lista de especies](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/depuracion-lista-especies-plantas.html) -> [Descarga de registros de presencia de especies](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/descarga-registros-presencia-especies-plantas.html) -> [Generación de mapa de riqueza de especies](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/generacion-mapa-riqueza-especies-plantas.html)
 
 ## Comandos para el manejo de la imagen y del contenedor Docker
 
