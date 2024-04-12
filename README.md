@@ -13,12 +13,12 @@ Este repositorio contiene el código fuente para la generación de mapas para el
 ## Resultados
 - [Mapa de riqueza de especies de plantas](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/data/processed/riqueza-especies-plantas.gpkg)  
 - [Mapa de riqueza de especies de animales]()  
-\
+&nbsp;
 - [Registros de presencia de especies de plantas](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/data/processed/registros-presencia-especies-plantas.csv)  
 - [Registros de presencia de especies de animales]()  
-\
+&nbsp;
 - [Lista depurada de especies de plantas](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/data/processed/lista-final-especies-plantas.csv)  
-- [Lista depurada de especies de animales]()  
+- [Lista depurada de especies de animales](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/data/processed/lista-final-especies-animales.csv)  
 
 ## Comandos para el manejo de la imagen y del contenedor Docker
 
