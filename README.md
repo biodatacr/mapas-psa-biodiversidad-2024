@@ -6,10 +6,14 @@ Este repositorio contiene el código fuente para la generación de mapas para el
 
 ### Plantas
 
-[Depuración de la lista de especies](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/depuracion-lista-especies-plantas.html) -> [Descarga de registros de presencia de especies](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/descarga-registros-presencia-especies-plantas.html) -> [Generación de mapa de riqueza de especies](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/generacion-mapa-riqueza-especies-plantas.html)
+[Depuración de la lista de especies](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/depuracion-lista-especies-plantas.html) -> \
+[Descarga de registros de presencia de especies](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/descarga-registros-presencia-especies-plantas.html) -> \
+[Generación de mapa de riqueza de especies](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/generacion-mapa-riqueza-especies-plantas.html)
 
 ### Animales
-[Depuración de la lista de especies](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/depuracion-lista-especies-animales.html) -> [Descarga de registros de presencia de especies](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/descarga-registros-presencia-especies-animales.html) -> [Generación de mapa de riqueza de especies](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/generacion-mapa-riqueza-especies-animales.html)
+[Depuración de la lista de especies](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/depuracion-lista-especies-animales.html) -> \
+[Descarga de registros de presencia de especies](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/descarga-registros-presencia-especies-animales.html) -> \
+[Generación de mapa de riqueza de especies](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/generacion-mapa-riqueza-especies-animales.html)
 
 ## Resultados
 - [Mapa de riqueza de especies de plantas]()  
