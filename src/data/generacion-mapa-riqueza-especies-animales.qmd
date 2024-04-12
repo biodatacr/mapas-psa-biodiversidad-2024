@@ -1,0 +1,537 @@
+---
+title: "Generación de un mapa de riqueza de especies de animales"
+format: 
+  html:
+    lang: es
+    theme: cosmo
+    toc: true
+    toc-expand: 3
+---
+
+# Introducción
+Este documento, elaborado con el sistema de publicación técnica y científica [Quarto](https://quarto.org/), detalla el proceso de generación de un mapa de riqueza de especies. La riqueza de especies de un polígono se calcula al contar la cantidad de registros de presencia de especies contenidos en este.
+
+El código fuente de este documento está disponible en [**PENDIENTE**]().
+
+```{r}
+#| label: carga-paquetes
+#| echo: false
+#| message: false
+
+# Paquetes
+library(here)
+library(readr)
+library(dplyr)
+library(tidyr)
+library(sf)
+library(DT)
+library(leaflet)
+library(leaflet.extras)
+library(leafem)
+library(viridisLite)
+library(crhexgrids)
+```
+
+# Definición de parámetros generales
+Para comenzar, se definieron algunos parámetros generales del procesamiento en R.
+
+```{r}
+#| label: constantes
+#| code-fold: show
+#| code-summary: "Código para la definición de parámetros generales"
+
+# Archivo con la lista original de especies
+ARCHIVO_LISTA_ESPECIES <- 
+  here("data", "processed", "lista-final-especies-animales.csv")
+
+# Archivo con los registros de presencia de especies
+ARCHIVO_REGISTROS_PRESENCIA_ESPECIES <- 
+  here("data", "processed", "registros-presencia-especies-animales.csv")
+
+# Archivo con el mapa de riqueza de especies
+ARCHIVO_MAPA_RIQUEZA_ESPECIES <-
+  here("data", "processed", "riqueza-especies-animales.gpkg")
+
+# Límite máximo permitido de incertidumbre en metros en las coordenadas
+LIMITE_MAXIMO_INCERTIDUMBRE_COORDENADAS <- 10000
+
+# Tema de la lista (para usar en los nombres de archivos de descargas)
+TEMA_REGISTROS_PRESENCIA_ESPECIES <- "animales"
+```
+
+Las rutas especificadas para los archivos se basan en la estructura de directorios para proyectos de ciencia de datos propuesta por la iniciativa [Cookiecutter Data Science](http://drivendata.github.io/cookiecutter-data-science/).
+
+# Carga y visualización de datos de entrada
+
+## Carga
+
+### Especies
+
+::: {.callout-note title="Archivo con la lista de especies"}
+`r ARCHIVO_LISTA_ESPECIES`
+:::
+
+El archivo se cargó en un cuadro de datos (*data frame*) de R, para su procesamiento.
+
+```{r}
+#| label: carga-lista-especies
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la carga de la lista"
+
+# Carga de la lista de especies
+lista_especies <- read_csv(ARCHIVO_LISTA_ESPECIES) 
+```
+
+### Registros de presencia de especies
+
+::: {.callout-note title="Archivo con los registros de presencia de especies"}
+`r ARCHIVO_REGISTROS_PRESENCIA_ESPECIES`
+:::
+
+El archivo se cargó en un objeto sf de R, para su procesamiento.
+
+```{r}
+#| label: carga-registros-presencia
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la carga de registros de presencia"
+
+# Carga de los registros de presencia
+registros_presencia <-
+  st_read(
+    ARCHIVO_REGISTROS_PRESENCIA_ESPECIES,
+  	
+    options = c(
+      "X_POSSIBLE_NAMES=decimalLongitude", # columna de longitud decimal
+      "Y_POSSIBLE_NAMES=decimalLatitude"   # columna de latitud decimal
+    ),
+    quiet = TRUE
+  )
+
+# Asignación del CRS WGS84
+st_crs(registros_presencia) <- 4326
+
+# Muestra de registros de presencia
+registros_presencia_muestra <-
+  registros_presencia |>
+  slice_sample(n = 1000, replace = FALSE)
+```
+
+### Polígonos
+
+```{r}
+#| label: carga-polígonos
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la carga de polígonos"
+
+# Carga de los polígonos
+poligonos <- cr_hex_grid_res_5
+```
+
+## Visualización
+
+### Tabla con la lista de especies
+
+```{r}
+#| label: visualizacion-lista-especies
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de la lista"
+
+# Visualización de la lista original de especies
+lista_especies |>
+  arrange(scientificName) |>
+  datatable(
+    rownames = FALSE,
+    extensions = c("Buttons"),
+    options = list(
+      searchHighlight = TRUE,
+      pageLength = 5,
+      language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json'),
+      dom = 'Bfrtlip',
+      buttons = list(
+        list(extend='copy', text='Copiar'),
+        list(extend='print', text='Imprimir'),
+        list(
+          extend = 'collection',
+          buttons = list(
+            list(
+              extend='csv', 
+              title=paste("Lista de especies de", TEMA_REGISTROS_PRESENCIA_ESPECIES),
+              text='CSV'
+            ),
+            list(
+              extend='excel', 
+              title=paste("Lista de especies de", TEMA_REGISTROS_PRESENCIA_ESPECIES),
+              text='Excel'
+            ),
+            list(
+              extend='pdf', 
+              title=paste("Lista de especies de", TEMA_REGISTROS_PRESENCIA_ESPECIES),
+              text='PDF'
+            )
+          ), 
+          text = 'Descargar'
+        )
+      )
+    )
+  )
+```
+
+::: {.callout-note title="Cantidad de registros en la lista de especies"}
+`r nrow(lista_especies)`
+:::
+
+### Mapa de registros de presencia (muestra) y polígonos
+
+```{r}
+#| label: mapa-registros-presencia
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la generación del mapa"
+
+# Visualización de los registros
+leaflet() |>
+  setView(
+    lng = -84.19452,
+    lat = 9.572735,
+    zoom = 7
+  ) |>  
+  addTiles(group = "Mapa general (OpenStreetMap)") |>
+  addPolygons(
+    data = poligonos,
+    color = "black",
+    fillColor = "transparent",
+    stroke = TRUE,
+    weight = 1.5,
+    group = "Hexágonos"
+  ) |>  
+  addCircleMarkers(
+    data = registros_presencia_muestra,
+    stroke = TRUE,
+    radius = 0.7,
+    fillOpacity = 1,
+    popup = paste(
+      paste0("<strong>Especie: </strong>", registros_presencia_muestra$species),
+      paste0("<strong>Localidad: </strong>", registros_presencia_muestra$locality),
+      paste0("<strong>Fecha: </strong>", registros_presencia_muestra$eventDate),
+      paste0("<strong>Fuente: </strong>", registros_presencia_muestra$institutionCode),
+      paste0("<a href='", registros_presencia_muestra$occurrenceID, "'>Más información</a>"),
+      sep = '<br/>'
+    ),    
+    group = "Registros de presencia"
+  )
+```
+
+::: {.callout-note title="Cantidad de registros de presencia de especies"}
+`r nrow(registros_presencia)`
+:::
+
+::: {.callout-note title="Cantidad de polígonos"}
+`r nrow(poligonos)`
+:::
+
+# Depuración de datos de entrada
+
+## Borrado de registros de presencia con alta incertidumbre en las coordenadas geográficas
+Se borraron los registros de presencia con incertidumbre en las coordenadas geográficas mayor o igual a `r LIMITE_MAXIMO_INCERTIDUMBRE_COORDENADAS` m.
+
+```{r}
+#| label: borrado-registros-incertidumbre-coordenadas
+#| code-fold: true
+#| code-summary: "Código del borrado"
+
+registros_presencia_incertidumbre_coordenadas_depurada <-
+  registros_presencia |>
+  mutate(
+    coordinateUncertaintyInMeters = as.numeric(coordinateUncertaintyInMeters)
+  ) |>
+  filter(is.na(coordinateUncertaintyInMeters) | (coordinateUncertaintyInMeters <= LIMITE_MAXIMO_INCERTIDUMBRE_COORDENADAS))
+  
+```
+
+::: {.callout-note title="Cantidad de registros de presencia luego del borrado de registros con alta incertidumbre en las coordenadas"}
+`r nrow(registros_presencia_incertidumbre_coordenadas_depurada)`
+:::
+
+# Cálculo de la riqueza de especies
+
+## Unión de registros de presencia y especies
+Esta unión (*join*) se realiza para agregar las columnas de categorías de conservación de especies (CITES, IUCN, SINAC y MINAE) a los registros de presencia.
+
+```{r}
+#| label: join-registros-presencia-especies
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código de la unión"
+
+# Unión de registros de presencia de especies y especies
+registros_presencia_join_especies <-
+  registros_presencia_incertidumbre_coordenadas_depurada |>
+  dplyr::select(
+    speciesKey, species,
+    decimalLongitude, decimalLatitude, coordinateUncertaintyInMeters
+  ) |>
+  mutate(
+    speciesKey = as.integer(speciesKey),
+    coordinateUncertaintyInMeters = as.numeric(coordinateUncertaintyInMeters)
+  ) |>
+  left_join(
+    dplyr::select(
+      lista_especies,
+      speciesKey,
+      category_cites, category_iucn, category_sinac, category_endemism
+    ),
+    by = "speciesKey"
+  )
+```
+
+::: {.callout-note title="Cantidad de registros unidos de presencia de especies y de especies"}
+`r nrow(registros_presencia_join_especies)`
+:::
+
+## Unión espacial de registros de presencia de especies y polígonos
+
+```{r}
+#| label: join-registros-presencia-poligonos
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código de la unión"
+
+rm(registros_presencia)
+rm(registros_presencia_incertidumbre_coordenadas_depurada)
+
+# Unión espacial de registros de presencia y polígonos
+registros_presencia_join_especies_join_poligonos <- 
+  st_join(
+    x = registros_presencia_join_especies,
+    y = dplyr::select(cr_hex_grid_res_5, h3_address),
+    join = st_within,
+    left = TRUE
+  )
+```
+
+::: {.callout-note title="Cantidad de registros unidos de presencia de especies y de polígonos"}
+`r nrow(registros_presencia_join_especies_join_poligonos)`
+:::
+
+## Conteo de la cantidad de especies por categoría de conservación en cada polígono
+
+```{r}
+#| label: conteo-especies-categorias-poligonos
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código del conteo de especies en cada polígono"
+
+# Conteo de especies por polígono
+conteo_especies_poligonos <- 
+  registros_presencia_join_especies_join_poligonos |>
+  st_drop_geometry() |>
+  group_by(h3_address) |>
+  summarize(especies = n_distinct(species, na.rm = TRUE))
+
+# Conteo de especies con categoría CITES I por polígono
+conteo_cites_i_poligonos <- 
+  registros_presencia_join_especies_join_poligonos |>
+  st_drop_geometry() |>
+  filter(category_cites == "I") |>
+  group_by(h3_address) |>
+  summarize(cites_i = n_distinct(species, na.rm = TRUE))
+
+# Conteo de especies con categoría CITES II por polígono
+conteo_cites_ii_poligonos <- 
+  registros_presencia_join_especies_join_poligonos |>
+  st_drop_geometry() |>
+  filter(category_cites == "II") |>
+  group_by(h3_address) |>
+  summarize(cites_ii = n_distinct(species, na.rm = TRUE))
+
+# Conteo de especies con categoría CITES III por polígono
+conteo_cites_iii_poligonos <- 
+  registros_presencia_join_especies_join_poligonos |>
+  st_drop_geometry() |>
+  filter(category_cites == "III") |>
+  group_by(h3_address) |>
+  summarize(cites_iii = n_distinct(species, na.rm = TRUE))
+
+# Conteo de especies con categoría IUCN CR por polígono
+conteo_iucn_cr_poligonos <- 
+  registros_presencia_join_especies_join_poligonos |>
+  st_drop_geometry() |>
+  filter(category_iucn == "CRITICALLY_ENDANGERED") |>
+  group_by(h3_address) |>
+  summarize(iucn_cr = n_distinct(species, na.rm = TRUE))
+
+# Conteo de especies con categoría IUCN EN por polígono
+conteo_iucn_en_poligonos <- 
+  registros_presencia_join_especies_join_poligonos |>
+  st_drop_geometry() |>
+  filter(category_iucn == "ENDANGERED") |>
+  group_by(h3_address) |>
+  summarize(iucn_en = n_distinct(species, na.rm = TRUE))
+
+# Conteo de especies con categoría IUCN VU por polígono
+conteo_iucn_vu_poligonos <- 
+  registros_presencia_join_especies_join_poligonos |>
+  st_drop_geometry() |>
+  filter(category_iucn == "VULNERABLE") |>
+  group_by(h3_address) |>
+  summarize(iucn_vu = n_distinct(species, na.rm = TRUE))
+
+# Conteo de especies con categoría SINAC PELIGRO DE EXTINCIÓN por polígono
+conteo_sinac_pe_poligonos <- 
+  registros_presencia_join_especies_join_poligonos |>
+  st_drop_geometry() |>
+  filter(category_sinac == "PELIGRO DE EXTINCIÓN") |>
+  group_by(h3_address) |>
+  summarize(sinac_pe = n_distinct(species, na.rm = TRUE))
+
+# Conteo de especies con categoría SINAC POBLACION REDUCIDA por polígono
+conteo_sinac_pr_poligonos <- 
+  registros_presencia_join_especies_join_poligonos |>
+  st_drop_geometry() |>
+  filter(category_sinac == "POBLACIÓN REDUCIDA O AMENAZADA") |>
+  group_by(h3_address) |>
+  summarize(sinac_pr = n_distinct(species, na.rm = TRUE))
+
+# Conteo de especies con categoría Endemismo por polígono
+conteo_endemismo_poligonos <- 
+  registros_presencia_join_especies_join_poligonos |>
+  st_drop_geometry() |>
+  filter(category_endemism == "Endémica") |>
+  group_by(h3_address) |>
+  summarize(endemismo = n_distinct(species, na.rm = TRUE))
+```
+
+## Unión de polígonos con cantidad de especies por categoría de conservación
+
+```{r}
+#| label: union-poligonos-cantidad-especies-categorias-conservacion
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código del conteo de la unión"
+
+# Unión de polígonos con cantidad de especies por categoría de conservación
+riqueza_especies_poligonos <-
+  poligonos |>
+  left_join(conteo_especies_poligonos,  by = "h3_address") |>
+  left_join(conteo_cites_i_poligonos,   by = "h3_address") |>
+  left_join(conteo_cites_ii_poligonos,  by = "h3_address") |>
+  left_join(conteo_cites_iii_poligonos, by = "h3_address") |>
+  left_join(conteo_iucn_cr_poligonos,   by = "h3_address") |>
+  left_join(conteo_iucn_en_poligonos,   by = "h3_address") |>
+  left_join(conteo_iucn_vu_poligonos,   by = "h3_address") |>
+  left_join(conteo_sinac_pe_poligonos,  by = "h3_address") |>
+  left_join(conteo_sinac_pr_poligonos,  by = "h3_address") |>
+  left_join(conteo_endemismo_poligonos, by = "h3_address") |>
+  replace_na(list(especies  = 0)) |>
+  replace_na(list(cites_i   = 0)) |>
+  replace_na(list(cites_ii  = 0)) |>
+  replace_na(list(cites_iii = 0)) |>
+  replace_na(list(iucn_cr   = 0)) |>
+  replace_na(list(iucn_en   = 0)) |>
+  replace_na(list(iucn_vu   = 0)) |>
+  replace_na(list(sinac_pe  = 0)) |>
+  replace_na(list(sinac_pr  = 0)) |>
+  replace_na(list(endemismo = 0))
+```
+
+# Generación del mapa de riqueza de especies
+
+## Visualización del mapa
+
+```{r}
+#| label: visualizacion-mapa-riqueza-especies
+#| warning: false
+#| message: false
+#| code-fold: true
+
+# Paleta de colores de riqueza de especies
+colores_riqueza_especies <-
+  colorNumeric(
+    palette = "Reds",
+    domain = riqueza_especies_poligonos$especies,
+    na.color = "transparent"
+  )
+
+# Mapa leaflet
+leaflet() |>
+  setView(
+    lng = -84.19452,
+    lat = 9.572735,
+    zoom = 7) |>
+  addTiles(group = "Mapa general (OpenStreetMap)") |>
+  addProviderTiles(
+    providers$Esri.WorldImagery, 
+    group = "Imágenes satelitales (ESRI World Imagery)"
+  ) |> 
+  addPolygons(
+    data = riqueza_especies_poligonos,
+    fillColor = ~ colores_riqueza_especies(riqueza_especies_poligonos$especies),
+    fillOpacity = 0.8,
+    color = "black",
+    stroke = TRUE,
+    weight = 1.0,
+    popup = paste(
+      paste("<strong>Hexágono:</strong>", riqueza_especies_poligonos$h3_address),
+      paste("<strong>Riqueza de especies:</strong>", riqueza_especies_poligonos$especies),
+      sep = '<br/>'
+    ),
+    group = "Riqueza de especies"
+  ) |>
+  addScaleBar(
+    position = "bottomleft", 
+    options = scaleBarOptions(imperial = FALSE)
+  ) |>    
+  addLegend(
+    position = "bottomleft",
+    pal = colores_riqueza_especies,
+    values = riqueza_especies_poligonos$especies,
+    group = "Riqueza de especies",
+    title = "Riqueza de especies"
+  ) |>
+  addLayersControl(
+    baseGroups = c(
+      "Mapa general (OpenStreetMap)", 
+      "Imágenes satelitales (ESRI World Imagery)"
+    ),
+    overlayGroups = c(
+      "Riqueza de especies"
+    )
+  ) |>
+  addResetMapButton() |>
+  addSearchOSM() |>
+  addMouseCoordinates() |>
+  addFullscreenControl()
+```
+
+## Almacenamiento del mapa
+
+```{r}
+#| label: almacenamiento-mapa-riqueza-especies
+#| message: false
+#| warning: false
+#| code-fold: true
+#| code-summary: "Código para el almacenamiento del mapa"
+
+# Almacenamiento del mapa
+riqueza_especies_poligonos |>
+  st_transform(5367) |>
+  st_write(
+    ARCHIVO_MAPA_RIQUEZA_ESPECIES, 
+    delete_layer = TRUE,
+    quiet = TRUE
+  )
+```
+
+::: {.callout-note title="Archivo del mapa de riqueza de especies"}
+`r ARCHIVO_MAPA_RIQUEZA_ESPECIES`
+:::
