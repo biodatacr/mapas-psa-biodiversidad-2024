@@ -873,7 +873,7 @@ for(i in 1:nrow(sinonimos_con_nombre_aceptado_1)) {
   } else if (!is.na(key_sinonimo) & is.na(key_nombre_aceptado)) {
     lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida <-
       lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida |>
-      filter(speciesKey != key_nombre_aceptado | is.na(speciesKey))
+      filter(speciesKey != key_sinonimo | is.na(speciesKey))
   } else if (!is.na(key_sinonimo) & !is.na(key_nombre_aceptado)) {
     lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida <-
       lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida |>
@@ -1002,7 +1002,7 @@ lista_especies_03_final <-
   lista_especies_02_depurada_taxonomica_03_final |>
   left_join(
     dplyr::select(
-      lista_especies_01_depurada_basica_05_final_02_duplicados_borrados,
+      lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida,
       name, category_cites, category_iucn, category_sinac, category_minae
     ),
     by = c("canonicalName" = "name")
@@ -1071,17 +1071,17 @@ lista_especies_03_final |>
           buttons = list(
             list(
               extend='csv', 
-              title=cat("Lista depurada final de especies de", TEMA_LISTA_ESPECIES),
+              title=paste("Lista depurada final de especies de", TEMA_LISTA_ESPECIES),
               text='CSV'
             ),
             list(
               extend='excel', 
-              title=cat("Lista depurada final de especies de", TEMA_LISTA_ESPECIES),
+              title=paste("Lista depurada final de especies de", TEMA_LISTA_ESPECIES),
               text='Excel'
             ),
             list(
               extend='pdf', 
-              title=cat("Lista depurada final de especies de", TEMA_LISTA_ESPECIES),
+              title=paste("Lista depurada final de especies de", TEMA_LISTA_ESPECIES),
               text='PDF'
             )
           ), 
