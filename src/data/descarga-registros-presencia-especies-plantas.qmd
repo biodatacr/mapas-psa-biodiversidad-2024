@@ -45,7 +45,7 @@ ARCHIVO_REGISTROS_PRESENCIA_ESPECIES <-
 
 # Directorio de archivos de registros de presencia comprimidos descargados
 DIRECTORIO_ARCHIVOS_DESCARGADOS <-
-  here("data", "interim")
+  here("data", "interim", "downloaded-occurrences-plants")
 
 # Cantidad de llaves de taxones por bloque de descarga
 TAMANIO_BLOQUE_DESCARGA <- 650
@@ -212,7 +212,7 @@ Los archivos CSV contenidos en los archivos ZIP se unificaron en un único archi
 
 # Lista de archivos ZIP descargados
 archivos_zip <- list.files(
-  path = here("data", "interim"), 
+  path = DIRECTORIO_ARCHIVOS_DESCARGADOS, 
   pattern = "*.zip"
 )
 
