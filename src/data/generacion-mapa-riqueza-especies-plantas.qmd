@@ -11,7 +11,7 @@ format:
 # Introducción
 Este documento, elaborado con el sistema de publicación técnica y científica [Quarto](https://quarto.org/), detalla el proceso de generación de un mapa de riqueza de especies. La riqueza de especies de un polígono se calcula al contar la cantidad de registros de presencia de especies contenidos en este.
 
-El código fuente de este documento está disponible en [**PENDIENTE**]().
+El código fuente de este documento está disponible en [https://github.com/biodatacr/mapas-psa-biodiversidad-2024/blob/main/src/data/depuracion-lista-especies-plantas.qmd](https://github.com/biodatacr/mapas-psa-biodiversidad-2024/blob/main/src/data/depuracion-lista-especies-plantas.qmd).
 
 ```{r}
 #| label: carga-paquetes
