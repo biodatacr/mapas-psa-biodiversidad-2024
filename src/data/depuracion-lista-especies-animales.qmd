@@ -1070,6 +1070,18 @@ lista_especies_03_final <-
       TRUE ~ category_endemism
     )
   )
+
+# Esto es para un caso en el que hay dos sinónimos de la misma especie, pero sin el nombre aceptado
+# Se elimina uno cualquiera
+# ESTE CASO, EN GENERAL, DEBE CONSIDERARSE DE MANERA GENERAL
+lista_especies_03_final <- 
+  lista_especies_03_final |>
+  filter(canonicalName != "Cantorchilus elutus")
+
+# Se eliminan registros con speciesKey = NA
+lista_especies_03_final <- 
+  lista_especies_03_final |>
+  filter(!is.na(speciesKey))
 ```
 
 **Valores en la columna de categorías de CITES (para verificar las correcciones)**
