@@ -11,7 +11,7 @@ format:
 # Introducción
 Este documento, elaborado con el sistema de publicación técnica y científica [Quarto](https://quarto.org/), detalla el proceso de generación de un mapa de riqueza de especies. La riqueza de especies de un polígono se calcula al contar la cantidad de registros de presencia de especies contenidos en este.
 
-El código fuente de este documento está disponible en [https://github.com/biodatacr/mapas-psa-biodiversidad-2024/blob/main/src/data/depuracion-lista-especies-plantas.qmd](https://github.com/biodatacr/mapas-psa-biodiversidad-2024/blob/main/src/data/depuracion-lista-especies-plantas.qmd).
+El código fuente de este documento está disponible en [https://github.com/biodatacr/mapas-psa-biodiversidad-2024/blob/main/src/data/generacion-mapa-riqueza-especies-plantas.qmd](https://github.com/biodatacr/mapas-psa-biodiversidad-2024/blob/main/src/data/generacion-mapa-riqueza-especies-plantas.qmd).
 
 ```{r}
 #| label: carga-paquetes
@@ -441,13 +441,47 @@ riqueza_especies_poligonos <-
 #| message: false
 #| code-fold: true
 
+# Cálculo de quintiles de riqueza de especies
+rangos_quintiles <- quantile(
+  riqueza_especies_poligonos$especies, 
+  probs = seq(0, 1, by = 0.2), 
+  na.rm = TRUE
+)
+
+# Redondeo de los límites de los quintiles a números enteros
+rangos_quintiles <- c(
+  floor(min(riqueza_especies_poligonos$especies)), 
+  ceiling(rangos_quintiles[-1])
+)
+
+# Etiquetas de los quintiles
+etiquetas_quintiles <- mapply(
+  function(inferior, superior, indice) {
+    if (indice == 1) {
+      return(sprintf("De %d a %d", inferior, superior))
+    } else {
+      return(sprintf("De %d a %d", inferior + 1, superior))
+    }
+  }, 
+  inferior = head(rangos_quintiles, -1), 
+  superior = tail(rangos_quintiles, -1), 
+  indice = seq_along(head(rangos_quintiles, -1))
+)
+
+# Cálculo de quintiles para la riqueza de especies
+riqueza_especies_poligonos$quintil <- cut(
+  riqueza_especies_poligonos$especies,
+  breaks = rangos_quintiles,
+  include.lowest = TRUE,
+  labels = etiquetas_quintiles
+)
+
 # Paleta de colores de riqueza de especies
-colores_riqueza_especies <-
-  colorNumeric(
-    palette = "Reds",
-    domain = riqueza_especies_poligonos$especies,
-    na.color = "transparent"
-  )
+colores_riqueza_especies <- colorFactor(
+  palette = "Greens",
+  domain = riqueza_especies_poligonos$quintil,
+  na.color = "transparent"
+)
 
 # Mapa leaflet
 leaflet() |>
@@ -462,14 +496,14 @@ leaflet() |>
   ) |> 
   addPolygons(
     data = riqueza_especies_poligonos,
-    fillColor = ~ colores_riqueza_especies(riqueza_especies_poligonos$especies),
+    fillColor = ~ colores_riqueza_especies(riqueza_especies_poligonos$quintil),
     fillOpacity = 0.8,
     color = "black",
     stroke = TRUE,
     weight = 1.0,
     popup = paste(
       paste("<strong>Hexágono:</strong>", riqueza_especies_poligonos$h3_address),
-      paste("<strong>Riqueza de especies:</strong>", riqueza_especies_poligonos$especies),
+      paste("<strong>Cantidad de especies:</strong>", riqueza_especies_poligonos$especies),
       sep = '<br/>'
     ),
     group = "Riqueza de especies"
@@ -481,9 +515,9 @@ leaflet() |>
   addLegend(
     position = "bottomleft",
     pal = colores_riqueza_especies,
-    values = riqueza_especies_poligonos$especies,
+    values = riqueza_especies_poligonos$quintil,
     group = "Riqueza de especies",
-    title = "Riqueza de especies"
+    title = "Cantidad de especies de plantas (quintiles)"
   ) |>
   addLayersControl(
     baseGroups = c(
