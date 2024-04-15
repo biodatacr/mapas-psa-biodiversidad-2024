@@ -11,7 +11,7 @@ format:
 # Introducción
 Este documento, elaborado con el sistema de publicación técnica y científica [Quarto](https://quarto.org/), detalla el proceso de descarga de registros de presencia de especies agrupados por la [Infraestructura Mundial de Información en Biodiversidad (GBIF)](https://www.gbif.org/). Las especies de los registros están contenidas en una lista. El documento combina texto con salidas generadas por el lenguaje de programación [R](https://www.r-project.org/). Como parte de la implementación del procesamiento en R, se utilizó el paquete [rgbif](https://cran.r-project.org/web/packages/rgbif/) para acceder los servicios web de la [interfaz de programación de aplicaciones (API) de la Infraestructura Mundial de Información en Biodiversidad (GBIF)](https://www.gbif.org/developer/summary) y utilizar los servicios de descarga de datos del portal de datos de GBIF.
 
-El código fuente de este documento está disponible en [**PENDIENTE**]().
+El código fuente de este documento está disponible en [https://github.com/biodatacr/mapas-psa-biodiversidad-2024/blob/main/src/data/descarga-registros-presencia-especies-animales.qmd](https://github.com/biodatacr/mapas-psa-biodiversidad-2024/blob/main/src/data/descarga-registros-presencia-especies-animales.qmd).
 
 
 ```{r}
@@ -40,10 +40,20 @@ ARCHIVO_LISTA_ESPECIES <-
   here("data", "processed", "lista-final-especies-animales.csv")
 
 # Archivo con los registros de presencia de especies descargados
+# NOTA: Luego de la ejecución de este documento, este archivo debe comprimirse, 
+# por ser muy grande para albergarse en GH. Debe descomprimirse antes de
+# ejecutar el documento de generación del mapa de riqueza de especies y una vez
+# finalizada la ejecución, debe comprimirse de nuevo.
 ARCHIVO_REGISTROS_PRESENCIA_ESPECIES <- 
   here("data", "processed", "registros-presencia-especies-animales.csv")
 
 # Directorio de archivos de registros de presencia comprimidos descargados
+# NOTA: Los archivos descargados pueden ser muy grandes para alojarse en GH.
+# Se probó con tamaños de bloque más pequeños (ej. 50 especies), pero aún asi se
+# generan archivos ZIP > 100 GB, probablemente porque hay especies con
+# muchos registros de presencia.
+# Como medida temporal, estos ZIP se respaldan en otra ubicación 
+# y se borran de DIRECTORIO_ARCHIVOS_DESCARGADOS.
 DIRECTORIO_ARCHIVOS_DESCARGADOS <-
   here("data", "interim", "downloaded-occurrences-animals")
 
