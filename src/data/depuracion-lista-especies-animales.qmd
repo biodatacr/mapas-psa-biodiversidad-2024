@@ -25,7 +25,7 @@ La depuración se dividió en tres etapas:
     - Unión de las listas de especies resultantes de la depuración básica y la depuración taxonómica en una lista final.
     - Almacenamiento de la lista depurada final en un archivo.
     
-El código fuente de este documento está disponible en [https://github.com/biodatacr/mapas-psa-biodiversidad-2024/blob/main/src/data/depuracion-lista-especies-plantas.qmd](https://github.com/biodatacr/mapas-psa-biodiversidad-2024/blob/main/src/data/depuracion-lista-especies-plantas.qmd).
+El código fuente de este documento está disponible en [https://github.com/biodatacr/mapas-psa-biodiversidad-2024/blob/main/src/data/depuracion-lista-especies-animales.qmd](https://github.com/biodatacr/mapas-psa-biodiversidad-2024/blob/main/src/data/depuracion-lista-especies-animales.qmd).
 
 
 ```{r}
@@ -375,7 +375,7 @@ lista_especies_01_depurada_basica_04_columnas_conservacion_corregidas <-
 **Valores en la columna de categorías de CITES**
 
 ```{r}
-#| label: visualizacion-valores-cites
+#| label: visualizacion-valores-cites-1
 #| warning: false
 #| message: false
 #| code-fold: true
@@ -412,7 +412,7 @@ lista_especies_01_depurada_basica_04_columnas_conservacion_corregidas <-
 **Valores en la columna de categorías de CITES (para verificar la corrección)**
 
 ```{r}
-#| label: correccion-valores-cites
+#| label: visualizacion-valores-cites-2
 #| warning: false
 #| message: false
 #| code-fold: true
@@ -427,7 +427,7 @@ unique(lista_especies_01_depurada_basica_04_columnas_conservacion_corregidas$cat
 **Valores en la columna de categorías de IUCN**
 
 ```{r}
-#| label: visualizacion-valores-iucn
+#| label: visualizacion-valores-iucn-1
 #| warning: false
 #| message: false
 #| code-fold: true
@@ -444,7 +444,7 @@ No se encontraron valores incorrectos.
 **Valores en la columna de categorías de SINAC**
 
 ```{r}
-#| label: visualizacion-valores-sinac
+#| label: visualizacion-valores-sinac-1
 #| warning: false
 #| message: false
 #| code-fold: true
@@ -477,7 +477,7 @@ lista_especies_01_depurada_basica_04_columnas_conservacion_corregidas <-
 **Valores en la columna de categorías de SINAC (para verificar la corrección)**
 
 ```{r}
-#| label: correccion-valores-sinac
+#| label: visualizacion-valores-sinac-2
 #| warning: false
 #| message: false
 #| code-fold: true
@@ -487,12 +487,12 @@ lista_especies_01_depurada_basica_04_columnas_conservacion_corregidas <-
 unique(lista_especies_01_depurada_basica_04_columnas_conservacion_corregidas$category_sinac)
 ```
 
-### MINAE
+### Endemismo
 
 **Valores en la columna de categorías de Endemismo**
 
 ```{r}
-#| label: visualizacion-valores-endemismo
+#| label: visualizacion-valores-endemismo-1
 #| warning: false
 #| message: false
 #| code-fold: true
@@ -861,11 +861,11 @@ for(i in 1:nrow(sinonimos_con_nombre_aceptado_1)) {
   } else if (!is.na(key_sinonimo) & !is.na(key_nombre_aceptado)) {
     lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida <-
       lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida |>
-      filter(speciesKey != key_sinonimo | is.na(speciesKey))
+      filter(name != sinonimo)
   } else {
     lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida <-
       lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida |>
-      filter(name != sinonimo)    
+      filter(name != sinonimo)
   }
 }
 ```
@@ -991,6 +991,137 @@ lista_especies_03_final <-
     ),
     by = c("canonicalName" = "name")
   )
+```
+
+## Correcciones finales
+Se realizaron aquí correcciones que no se realizaron anteriormente.
+
+```{r}
+#| label: correcciones-finales
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para las correcciones finales"
+
+# Correcciones finales
+
+# Atelopus chirripoensis
+lista_especies_03_final <- 
+  lista_especies_03_final |>
+  mutate(
+    category_cites = case_when(
+      canonicalName == "Atelopus chirripoensis" ~ NA,
+      TRUE ~ category_cites
+    ),
+    category_iucn = case_when(
+      canonicalName == "Atelopus chirripoensis" ~ "DATA_DEFICIENT",
+      TRUE ~ category_iucn
+    ),
+    category_sinac = case_when(
+      canonicalName == "Atelopus chirripoensis" ~ "PELIGRO DE EXTINCIÓN ",
+      TRUE ~ category_sinac
+    ),
+    category_endemism = case_when(
+      canonicalName == "Atelopus chirripoensis" ~ "Endémica",
+      TRUE ~ category_endemism
+    )
+  )
+
+# Atelopus senex
+lista_especies_03_final <- 
+  lista_especies_03_final |>
+  mutate(
+    category_cites = case_when(
+      canonicalName == "Atelopus senex" ~ NA,
+      TRUE ~ category_cites
+    ),
+    category_iucn = case_when(
+      canonicalName == "Atelopus senex" ~ "EXTINCT",
+      TRUE ~ category_iucn
+    ),
+    category_sinac = case_when(
+      canonicalName == "Atelopus senex" ~ "PELIGRO DE EXTINCIÓN ",
+      TRUE ~ category_sinac
+    ),
+    category_endemism = case_when(
+      canonicalName == "Atelopus senex" ~ "Endémica",
+      TRUE ~ category_endemism
+    )
+  )
+
+# Incilius chompipe
+lista_especies_03_final <- 
+  lista_especies_03_final |>
+  mutate(
+    category_cites = case_when(
+      canonicalName == "Incilius chompipe" ~ NA,
+      TRUE ~ category_cites
+    ),
+    category_iucn = case_when(
+      canonicalName == "Incilius chompipe" ~ "ENDANGERED",
+      TRUE ~ category_iucn
+    ),
+    category_sinac = case_when(
+      canonicalName == "Incilius chompipe" ~ "POBLACIÓN REDUCIDA O AMENAZADA",
+      TRUE ~ category_sinac
+    ),
+    category_endemism = case_when(
+      canonicalName == "Incilius chompipe" ~ "Endémica",
+      TRUE ~ category_endemism
+    )
+  )
+```
+
+**Valores en la columna de categorías de CITES (para verificar las correcciones)**
+
+```{r}
+#| label: visualizacion-valores-cites-3
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de valores de la columna de categorías de CITES"
+
+# Valores de la columna
+unique(lista_especies_03_final$category_cites)
+```
+
+**Valores en la columna de categorías de IUCN (para verificar las correcciones)**
+
+```{r}
+#| label: visualizacion-valores-iucn-3
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de valores de la columna de categorías de IUCN"
+
+# Valores de la columna
+unique(lista_especies_03_final$category_iucn)
+```
+
+**Valores en la columna de categorías de SINAC (para verificar las correcciones)**
+
+```{r}
+#| label: visualizacion-valores-sinac-3
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de valores de la columna de categorías de SINAC"
+
+# Valores de la columna
+unique(lista_especies_03_final$category_sinac)
+```
+
+**Valores en la columna de categorías de Endemismo (para verificar la correcciones)**
+
+```{r}
+#| label: visualizacion-valores-endemismo-3
+#| warning: false
+#| message: false
+#| code-fold: true
+#| code-summary: "Código para la visualización de valores de la columna de categorías de Endemismo"
+
+# Valores de la columna
+unique(lista_especies_03_final$category_endemism)
 ```
 
 ## Visualización de la lista depurada final
