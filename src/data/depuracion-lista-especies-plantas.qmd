@@ -877,7 +877,7 @@ for(i in 1:nrow(sinonimos_con_nombre_aceptado_1)) {
   } else if (!is.na(key_sinonimo) & !is.na(key_nombre_aceptado)) {
     lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida <-
       lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida |>
-      filter(speciesKey != key_sinonimo | is.na(speciesKey))
+      filter(name != sinonimo)
   } else {
     lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida <-
       lista_especies_01_depurada_basica_05_final_03_sinonimia_corregida |>
