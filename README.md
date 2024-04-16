@@ -1,6 +1,12 @@
 # Mapas para el Programa de Pago por Servicios Ambientales (PSA) en biodiversidad del año 2024
 
-Este repositorio contiene el código fuente para la generación de mapas para el Programa de Pago por Servicios Ambientales (PSA) en biodiversidad del año 2024.
+Este repositorio contiene los documentos, elaborados con el sistema de publicación técnica y científica [Quarto](https://quarto.org/), para la generación de mapas para el Programa de Pago por Servicios Ambientales (PSA) en biodiversidad del año 2024. Los mapas muestran la riqueza de especies de plantas y animales en una grilla de hexágonos. En cada caso, se siguió un flujo de trabajo de tres pasos:
+
+1. Depuración de una lista de especies.
+2. Descarga de registros de presencia de las especies de la lista.
+3. Generación del mapa de riqueza de especies.
+
+Los documentos Quarto combinan texto con salidas generadas por el lenguaje de programación [R](https://www.r-project.org/). Como parte de la implementación del procesamiento en R, se utilizó el paquete [rgbif](https://cran.r-project.org/web/packages/rgbif/) para acceder los servicios web de la [interfaz de programación de aplicaciones (API) de la Infraestructura Mundial de Información en Biodiversidad (GBIF)](https://www.gbif.org/developer/summary).
 
 ## Flujos de trabajo
 
@@ -11,14 +17,16 @@ Este repositorio contiene el código fuente para la generación de mapas para el
 [Depuración de lista de especies](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/depuracion-lista-especies-animales.html) -> [Descarga de registros de presencia de especies](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/descarga-registros-presencia-especies-animales.html) -> [Generación de mapa de riqueza de especies](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/src/data/generacion-mapa-riqueza-especies-animales.html)
 
 ## Resultados
-- [Mapa de riqueza de especies de plantas](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/data/processed/riqueza-especies-plantas.gpkg)  
-- [Mapa de riqueza de especies de animales](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/data/processed/riqueza-especies-animales.gpkg)  
-&nbsp;
-- [Registros de presencia de especies de plantas](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/data/processed/registros-presencia-especies-plantas.csv)  
-- [Registros de presencia de especies de animales](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/data/processed/registros-presencia-especies-animales.zip)  
-&nbsp;
+
+### Plantas (fecha de generación: 2024-04-15)
 - [Lista depurada de especies de plantas](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/data/processed/lista-final-especies-plantas.csv)  
+- [Registros de presencia de especies de plantas](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/data/processed/registros-presencia-especies-plantas.csv)  
+- [Mapa de riqueza de especies de plantas](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/data/processed/riqueza-especies-plantas.gpkg)  
+
+### Animales (fecha de generación: 2024-04-15)
 - [Lista depurada de especies de animales](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/data/processed/lista-final-especies-animales.csv)  
+- [Registros de presencia de especies de animales](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/data/processed/registros-presencia-especies-animales.zip)  
+- [Mapa de riqueza de especies de animales](https://biodatacr.github.io/mapas-psa-biodiversidad-2024/data/processed/riqueza-especies-animales.gpkg)  
 
 ## Comandos para el manejo de la imagen y del contenedor Docker
 
